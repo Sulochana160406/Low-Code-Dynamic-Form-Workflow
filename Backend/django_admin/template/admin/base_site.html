@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/custom.css' %}">
+{% endblock %}
+
+{% block title %}
+Low-Code Dynamic Form Platform | Admin
+{% endblock %}
+
+{% block branding %}
+<div style="display:flex;align-items:center;gap:15px;padding:10px 0;">
+
+    <div style="
+        width:55px;
+        height:55px;
+        border-radius:50%;
+        background:#2563eb;
+        color:white;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        font-size:28px;
+        font-weight:bold;
+    ">
+        🚀
+    </div>
+
+    <div>
+        <h1 id="site-name" style="
+            margin:0;
+            color:white;
+            font-size:28px;
+            font-weight:bold;
+        ">
+            Low-Code Dynamic Form Platform
+        </h1>
+
+        <small style="
+            color:#d1d5db;
+            font-size:14px;
+        ">
+            Django Administration Dashboard
+        </small>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block nav-global %}
+{% endblock %}
