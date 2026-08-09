@@ -1,0 +1,153 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getForms, getResponses } from "../services/api";
+
+function Dashboard() {
+  const [forms, setForms] = useState([]);
+  const [totalResponses, setTotalResponses] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const loadDashboard = async () => {
+    try {
+      const formsData = await getForms();
+      const responsesData = await getResponses();
+
+      setForms(formsData);
+      setTotalResponses(responsesData.length);
+    } catch (error) {
+      console.log(error);
+      alert("Error loading dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalForms = forms.length;
+  const publishedForms = forms.filter((form) => form.status === "Published").length;
+  const draftForms = forms.filter((form) => form.status === "Draft").length;
+
+  const recentForms = forms.slice().reverse().slice(0, 5);
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>📋 Low-Code Dynamic Form Platform</h1>
+        <p>Welcome back — here's what's happening with your forms.</p>
+      </div>
+
+      <div className="cards">
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate("/forms-list")}
+          title="View all forms"
+        >
+          <div className="card-icon blue">📄</div>
+          <div>
+            <div className="card-label">Total Forms</div>
+            <div className="card-value">{totalForms}</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate("/forms-list?status=Published")}
+          title="View published forms"
+        >
+          <div className="card-icon green">✅</div>
+          <div>
+            <div className="card-label">Published Forms</div>
+            <div className="card-value">{publishedForms}</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate("/forms-list?status=Draft")}
+          title="View draft forms"
+        >
+          <div className="card-icon orange">📝</div>
+          <div>
+            <div className="card-label">Draft Forms</div>
+            <div className="card-value">{draftForms}</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="card"
+          onClick={() => navigate("/responses")}
+          title="View all responses"
+        >
+          <div className="card-icon purple">📨</div>
+          <div>
+            <div className="card-label">Total Responses</div>
+            <div className="card-value">{totalResponses}</div>
+          </div>
+        </button>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <h2>🕒 Recent Forms</h2>
+          <a className="link-more" onClick={() => navigate("/forms-list")} href="#!">
+            View all →
+          </a>
+        </div>
+
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="3" className="empty-row">Loading…</td>
+              </tr>
+            ) : recentForms.length === 0 ? (
+              <tr>
+                <td colSpan="3" className="empty-row">
+                  No forms yet — create your first form to get started.
+                </td>
+              </tr>
+            ) : (
+              recentForms.map((form) => (
+                <tr
+                  key={form.id}
+                  className="clickable-row"
+                  onClick={() => navigate(`/edit-form/${form.id}`)}
+                  title="Open this form"
+                >
+                  <td>#{form.id}</td>
+                  <td>{form.title}</td>
+                  <td>
+                    {form.status === "Published" ? (
+                      <span className="badge badge-success">✅ Published</span>
+                    ) : (
+                      <span className="badge badge-warning">📝 Draft</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default Dashboard;
