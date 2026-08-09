@@ -6,6 +6,7 @@ function Dashboard() {
   const [forms, setForms] = useState([]);
   const [totalResponses, setTotalResponses] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const navigate = useNavigate();
 
@@ -14,18 +15,27 @@ function Dashboard() {
   }, []);
 
   const loadDashboard = async () => {
-    try {
-      const formsData = await getForms();
-      const responsesData = await getResponses();
+    // Load forms and responses independently — if one fails on a flaky
+    // connection, the other can still succeed and render, instead of
+    // the whole dashboard failing on a single hiccup.
+    const formsResult = await getForms().catch((error) => {
+      console.log("Failed to load forms:", error);
+      return null;
+    });
 
-      setForms(formsData);
-      setTotalResponses(responsesData.length);
-    } catch (error) {
-      console.log(error);
-      alert("Error loading dashboard");
-    } finally {
-      setLoading(false);
+    const responsesResult = await getResponses().catch((error) => {
+      console.log("Failed to load responses:", error);
+      return null;
+    });
+
+    if (formsResult) setForms(formsResult);
+    if (responsesResult) setTotalResponses(responsesResult.length);
+
+    if (!formsResult && !responsesResult) {
+      setLoadError(true);
     }
+
+    setLoading(false);
   };
 
   const totalForms = forms.length;
@@ -40,6 +50,19 @@ function Dashboard() {
         <h1>📋 Low-Code Dynamic Form Platform</h1>
         <p>Welcome back — here's what's happening with your forms.</p>
       </div>
+
+      {loadError && (
+        <div className="validation-errors" style={{ margin: "0 32px 20px" }}>
+          <strong>Couldn't load your data</strong>
+          <p style={{ marginTop: "4px" }}>
+            This can happen on a slow or unstable connection. Please check your internet
+            connection and{" "}
+            <a href="#!" onClick={() => window.location.reload()}>
+              tap here to retry
+            </a>.
+          </p>
+        </div>
+      )}
 
       <div className="cards">
         <button
