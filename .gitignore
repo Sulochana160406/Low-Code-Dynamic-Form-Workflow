@@ -1,0 +1,10 @@
+venv/
+Backend/venv/
+Backend/uploads/*.pdf
+Backend/uploads/*.txt
+__pycache__/
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+*.pyc
+Backend/django_admin/staticfiles/
