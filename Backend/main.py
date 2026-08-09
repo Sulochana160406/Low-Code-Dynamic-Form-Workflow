@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db
 from models import (
+    Base,
     Form,
     FormVersion,
     Field,
@@ -36,6 +37,13 @@ from schemas import (
 )
 
 app = FastAPI()
+
+# Create any tables that don't exist yet. Safe to run every startup —
+# it only CREATES missing tables, never touches ones that already
+# exist. This is what sets up the database schema on a brand-new
+# deployment (e.g. Render) where there's no shell access to run this
+# manually on the free tier.
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
