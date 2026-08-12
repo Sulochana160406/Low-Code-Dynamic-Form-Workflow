@@ -54,6 +54,12 @@ app.add_middleware(
 )
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+
+# In production (Render/Vercel), these are set as real environment
+# variables pointing at the live URLs. Locally, they fall back to
+# your own machine's addresses, so nothing changes for local dev.
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Files are NOT served via a plain static mount on purpose — every
@@ -70,7 +76,7 @@ def generate_signed_url(stored_name: str) -> str:
     expires = int(time.time()) + SIGNED_URL_TTL_SECONDS
     message = f"{stored_name}:{expires}".encode()
     signature = hmac.new(FILE_SIGNING_SECRET.encode(), message, hashlib.sha256).hexdigest()
-    return f"http://127.0.0.1:8000/download/{stored_name}?expires={expires}&sig={signature}"
+    return f"{BACKEND_URL}/download/{stored_name}?expires={expires}&sig={signature}"
 
 
 def verify_signed_url(stored_name: str, expires: int, signature: str) -> bool:
@@ -460,9 +466,6 @@ def publish_form(form_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_version)
 
-    # Freeze the schema: copy each live field into a new row tagged
-    # with this version_id, so future edits to the live fields never
-    # affect submissions already made against this published version.
     old_to_new_field_id = {}
 
     for field in live_fields:
@@ -494,7 +497,6 @@ def publish_form(form_id: int, db: Session = Depends(get_db)):
             db.add(FieldOption(field_id=snapshot_field.id, option_value=option.option_value))
     db.commit()
 
-    # Freeze conditional rules too, remapped to the new snapshot field ids.
     live_rules = db.query(ConditionalRule).filter(ConditionalRule.form_id == form_id, ConditionalRule.version_id.is_(None)).all()
     for rule in live_rules:
         if rule.trigger_field_id in old_to_new_field_id and rule.target_field_id in old_to_new_field_id:
@@ -595,7 +597,7 @@ def get_share_link(form_id: int, db: Session = Depends(get_db)):
     version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
     if not version:
         raise HTTPException(status_code=404, detail="Publish the form first.")
-    return {"share_link": f"http://localhost:5173/form/{version.uuid}"}
+    return {"share_link": f"{FRONTEND_URL}/form/{version.uuid}"}
 
 
 # =========================================================
@@ -612,8 +614,6 @@ async def upload_file(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    # Look up the field's config — check live fields first, then any
-    # published snapshot (covers both preview and public-link submissions).
     field = db.query(Field).filter(Field.id == field_id).first()
     if not field:
         raise HTTPException(status_code=404, detail="Field not found")
@@ -621,7 +621,6 @@ async def upload_file(
     if field.field_type != "file":
         raise HTTPException(status_code=422, detail="This field does not accept file uploads.")
 
-    # Validate file type
     if field.allowed_file_types:
         allowed = [ext.strip().lower() for ext in field.allowed_file_types.split(",") if ext.strip()]
         ext = os.path.splitext(file.filename)[1].lower()
@@ -631,7 +630,6 @@ async def upload_file(
                 detail=f"Invalid file type '{ext}'. Allowed types: {', '.join(allowed)}",
             )
 
-    # Validate file size (max_file_size stored in KB)
     contents = await file.read()
     size_kb = len(contents) / 1024
     if field.max_file_size and size_kb > field.max_file_size:
@@ -640,7 +638,6 @@ async def upload_file(
             detail=f"File too large ({size_kb:.0f} KB). Max allowed is {field.max_file_size} KB.",
         )
 
-    # Store the file locally with a unique name to avoid collisions
     ext = os.path.splitext(file.filename)[1]
     stored_name = f"{uuid_lib.uuid4().hex}{ext}"
     stored_path = os.path.join(UPLOAD_DIR, stored_name)
@@ -648,10 +645,8 @@ async def upload_file(
     with open(stored_path, "wb") as f:
         f.write(contents)
 
-    # Save a reference row (submission_id is filled in once the form
-    # is actually submitted — see _process_submission below).
     db.add(UploadedFile(
-        submission_id=0,  # 0 = "uploaded but not yet attached to a submission"
+        submission_id=0,
         field_id=field_id,
         original_name=file.filename,
         stored_name=stored_name,
@@ -689,10 +684,6 @@ def download_file(stored_name: str, expires: int, sig: str, db: Session = Depend
 
 @app.get("/files/{stored_name}/fresh-link")
 def get_fresh_download_link(stored_name: str, db: Session = Depends(get_db)):
-    """Signed links expire after an hour by design. Rather than a saved
-    link going dead forever, the frontend calls this any time it wants
-    to offer a download — always returns a link valid for another hour
-    from right now."""
     record = db.query(UploadedFile).filter(UploadedFile.stored_name == stored_name).first()
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
@@ -711,22 +702,15 @@ EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def validate_field_value(field: Field, value: str, skip_required: bool = False) -> list:
-    """Validate a single submitted value against its field's configuration.
-    Returns a list of human-readable error strings (empty = valid).
-
-    skip_required=True is used for fields controlled by a show/hide
-    conditional rule — their "required when visible" behavior is decided
-    by the rule-evaluation step instead, since a field hidden by a rule
-    must never be forced empty-or-required by its own static config."""
     errors = []
     value = "" if value is None else str(value)
 
     if field.required and not skip_required and value.strip() == "":
         errors.append(f"'{field.field_label}' is required.")
-        return errors  # no further checks needed on an empty required field
+        return errors
 
     if value.strip() == "":
-        return errors  # optional and empty — nothing more to validate
+        return errors
 
     if field.field_type == "text":
         if field.min_length is not None and len(value) < field.min_length:
@@ -769,7 +753,7 @@ def validate_field_value(field: Field, value: str, skip_required: bool = False) 
                 errors.append(f"'{field.field_label}' must be on or before {field.max_date}.")
 
     elif field.field_type in ("dropdown", "multi-checkbox"):
-        pass  # checked against options list by the caller (needs DB access)
+        pass
 
     elif field.field_type == "rating":
         try:
@@ -790,10 +774,6 @@ def validate_field_value(field: Field, value: str, skip_required: bool = False) 
 
 @app.post("/public/forms/{form_id}/submit")
 def submit_form(form_id: int, submission_data: SubmitFormCreate, db: Session = Depends(get_db)):
-    """Submit against the LIVE/draft schema — this is what the numeric
-    /form/{id} preview link shows, so it must validate against the same
-    live fields, not a possibly-different published snapshot."""
-
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -806,9 +786,6 @@ def submit_form(form_id: int, submission_data: SubmitFormCreate, db: Session = D
 
 @app.post("/public/form/{form_uuid}/submit")
 def submit_form_by_uuid(form_uuid: str, submission_data: SubmitFormCreate, db: Session = Depends(get_db)):
-    """Submit against a specific PUBLISHED version's frozen snapshot —
-    this is what the real shareable /form/{uuid} link uses."""
-
     version = db.query(FormVersion).filter(FormVersion.uuid == form_uuid).first()
     if not version:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -830,16 +807,10 @@ def _process_submission(form_id, fields, rules, version_number, submission_data,
 
     all_errors = []
 
-    # Fields whose visibility is controlled by a show/hide rule must not
-    # have their "required" enforced unconditionally here — whether they're
-    # required depends on whether they're currently visible, which the
-    # conditional-rule pass below decides. (action="require" doesn't
-    # control visibility, so it doesn't need this exemption.)
     visibility_controlled_ids = {
         rule.target_field_id for rule in rules if rule.action in ("show", "hide")
     }
 
-    # 1) Per-field validation using each field's own configuration
     for field_id_key, field in fields_by_id.items():
         value = submitted.get(field_id_key, "")
         errors = validate_field_value(field, value, skip_required=field_id_key in visibility_controlled_ids)
@@ -853,7 +824,6 @@ def _process_submission(form_id, fields, rules, version_number, submission_data,
 
         all_errors.extend(errors)
 
-    # 2) Apply conditional rules (server-side re-check — never trust the frontend)
     for rule in rules:
         trigger_field = fields_by_id.get(rule.trigger_field_id)
         target_field = fields_by_id.get(rule.target_field_id)
@@ -885,7 +855,6 @@ def _process_submission(form_id, fields, rules, version_number, submission_data,
     if all_errors:
         raise HTTPException(status_code=422, detail={"message": "Validation failed", "errors": all_errors})
 
-    # 3) All valid — persist the submission
     new_submission = Submission(form_id=form_id, version_number=version_number, submitted_by=submission_data.submitted_by)
     db.add(new_submission)
     db.commit()
