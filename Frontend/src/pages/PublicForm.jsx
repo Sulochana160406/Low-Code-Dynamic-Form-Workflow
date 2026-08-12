@@ -29,6 +29,7 @@ function PublicForm() {
   const [errors, setErrors] = useState([]);
   const [uploadingFieldId, setUploadingFieldId] = useState(null);
   const [uploadedFileNames, setUploadedFileNames] = useState({});
+  const [submitterName, setSubmitterName] = useState("");
 
   useEffect(() => {
     loadForm();
@@ -99,6 +100,12 @@ function PublicForm() {
   };
 
   const handleSubmit = async () => {
+    if (!submitterName.trim()) {
+      setErrors(["Please enter your name before submitting."]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setErrors([]);
     setSubmitting(true);
     try {
@@ -107,7 +114,7 @@ function PublicForm() {
       const visibleFields = form.fields.filter((f) => getFieldState(f.id).visible);
 
       const payload = {
-        submitted_by: "Public User",
+        submitted_by: submitterName.trim(),
         responses: visibleFields.map((field) => ({
           field_id: field.id,
           value: Array.isArray(responses[field.id])
@@ -167,6 +174,20 @@ function PublicForm() {
             </ul>
           </div>
         )}
+
+        <div className="public-field">
+          <label>
+            Your Name
+            <span className="req">*</span>
+          </label>
+          <input
+            type="text"
+            value={submitterName}
+            onChange={(e) => setSubmitterName(e.target.value)}
+            placeholder="Enter your full name"
+            autoComplete="off"
+          />
+        </div>
 
         {form.fields.map((field) => {
           const { visible, forcedRequired } = getFieldState(field.id);

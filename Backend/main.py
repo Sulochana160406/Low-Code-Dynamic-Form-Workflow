@@ -302,8 +302,7 @@ def create_field(field: FieldCreate, db: Session = Depends(get_db)):
 
 @app.get("/fields")
 def get_fields(db: Session = Depends(get_db)):
-    return db.query(Field).filter(Field.version_id.is_(None)).order_by(Field.order.asc(), Field.id.asc()).all()
-
+    return db.query(Field).order_by(Field.order.asc(), Field.id.asc()).all()
 
 @app.put("/fields/{field_id}")
 def update_field(field_id: int, updated_field: FieldUpdate, db: Session = Depends(get_db)):
