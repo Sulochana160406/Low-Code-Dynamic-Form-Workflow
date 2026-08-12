@@ -1,4 +1,7 @@
-const BASE_URL = "http://127.0.0.1:8000";
+// In production (Vercel), VITE_API_URL is set as an environment variable
+// pointing at your live Render backend. Locally, it falls back to your
+// own machine's backend, so local development is unaffected.
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 // ---------------- FORMS ----------------
 
