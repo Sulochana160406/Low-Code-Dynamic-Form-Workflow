@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import (
     Base,
+    User,
     Form,
     FormVersion,
     Field,
@@ -25,6 +26,9 @@ from models import (
     UploadedFile,
 )
 from schemas import (
+    UserRegister,
+    UserLogin,
+    TokenResponse,
     FormCreate,
     FormUpdate,
     FieldCreate,
@@ -34,6 +38,12 @@ from schemas import (
     ConditionalRuleCreate,
     FormWithFieldsCreate,
     SubmitFormCreate,
+)
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
 )
 
 app = FastAPI()
@@ -93,11 +103,59 @@ def home():
 
 
 # =========================================================
+# AUTH  (protects the admin dashboard — public form-fill routes
+# under /public/... and /download/... stay open, unauthenticated)
+# =========================================================
+
+@app.post("/auth/register")
+def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == user_data.email.lower().strip()).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+
+    if len(user_data.password) < 6:
+        raise HTTPException(status_code=422, detail="Password must be at least 6 characters.")
+
+    new_user = User(
+        email=user_data.email.lower().strip(),
+        name=user_data.name,
+        hashed_password=hash_password(user_data.password),
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    token = create_access_token(new_user.id, new_user.email)
+    return TokenResponse(
+        access_token=token,
+        user={"id": new_user.id, "email": new_user.email, "name": new_user.name},
+    )
+
+
+@app.post("/auth/login")
+def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == credentials.email.lower().strip()).first()
+    if not user or not verify_password(credentials.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+
+    token = create_access_token(user.id, user.email)
+    return TokenResponse(
+        access_token=token,
+        user={"id": user.id, "email": user.email, "name": user.name},
+    )
+
+
+@app.get("/auth/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email, "name": current_user.name}
+
+
+# =========================================================
 # FORMS
 # =========================================================
 
 @app.post("/forms")
-def create_form(form: FormCreate, db: Session = Depends(get_db)):
+def create_form(form: FormCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_form = Form(title=form.title, description=form.description, status="Draft")
     db.add(new_form)
     db.commit()
@@ -106,12 +164,12 @@ def create_form(form: FormCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/forms")
-def get_forms(db: Session = Depends(get_db)):
+def get_forms(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Form).order_by(Form.id.desc()).all()
 
 
 @app.get("/forms/{form_id}")
-def get_form(form_id: int, db: Session = Depends(get_db)):
+def get_form(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -172,7 +230,7 @@ def get_form(form_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/forms/{form_id}")
-def update_form(form_id: int, updated: FormUpdate, db: Session = Depends(get_db)):
+def update_form(form_id: int, updated: FormUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -187,7 +245,7 @@ def update_form(form_id: int, updated: FormUpdate, db: Session = Depends(get_db)
 
 
 @app.delete("/forms/{form_id}")
-def delete_form(form_id: int, db: Session = Depends(get_db)):
+def delete_form(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -204,7 +262,7 @@ def delete_form(form_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/forms/{form_id}/archive")
-def archive_form(form_id: int, db: Session = Depends(get_db)):
+def archive_form(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -216,7 +274,7 @@ def archive_form(form_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/forms-with-fields")
-def create_form_with_fields(form_data: FormWithFieldsCreate, db: Session = Depends(get_db)):
+def create_form_with_fields(form_data: FormWithFieldsCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_form = Form(title=form_data.title, description=form_data.description, status="Draft")
     db.add(new_form)
     db.commit()
@@ -256,7 +314,7 @@ def create_form_with_fields(form_data: FormWithFieldsCreate, db: Session = Depen
 # =========================================================
 
 @app.post("/fields")
-def create_field(field: FieldCreate, db: Session = Depends(get_db)):
+def create_field(field: FieldCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     last_field = (
         db.query(Field)
         .filter(Field.form_id == field.form_id, Field.version_id.is_(None))
@@ -301,11 +359,11 @@ def create_field(field: FieldCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/fields")
-def get_fields(db: Session = Depends(get_db)):
+def get_fields(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Field).order_by(Field.order.asc(), Field.id.asc()).all()
 
 @app.put("/fields/{field_id}")
-def update_field(field_id: int, updated_field: FieldUpdate, db: Session = Depends(get_db)):
+def update_field(field_id: int, updated_field: FieldUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     field = db.query(Field).filter(Field.id == field_id).first()
     if not field:
         raise HTTPException(status_code=404, detail="Field not found")
@@ -319,7 +377,7 @@ def update_field(field_id: int, updated_field: FieldUpdate, db: Session = Depend
 
 
 @app.delete("/fields/{field_id}")
-def delete_field(field_id: int, db: Session = Depends(get_db)):
+def delete_field(field_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     field = db.query(Field).filter(Field.id == field_id).first()
     if not field:
         raise HTTPException(status_code=404, detail="Field not found")
@@ -331,7 +389,7 @@ def delete_field(field_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/forms/{form_id}/fields/reorder")
-def reorder_fields(form_id: int, payload: FieldReorderRequest, db: Session = Depends(get_db)):
+def reorder_fields(form_id: int, payload: FieldReorderRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -353,7 +411,7 @@ def reorder_fields(form_id: int, payload: FieldReorderRequest, db: Session = Dep
 # =========================================================
 
 @app.post("/field-options")
-def create_field_option(option: FieldOptionCreate, db: Session = Depends(get_db)):
+def create_field_option(option: FieldOptionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_option = FieldOption(field_id=option.field_id, option_value=option.option_value)
     db.add(new_option)
     db.commit()
@@ -362,7 +420,7 @@ def create_field_option(option: FieldOptionCreate, db: Session = Depends(get_db)
 
 
 @app.get("/field-options")
-def get_field_options(db: Session = Depends(get_db)):
+def get_field_options(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(FieldOption).all()
 
 
@@ -375,7 +433,7 @@ VALID_ACTIONS = {"show", "hide", "require"}
 
 
 @app.post("/conditional-rules")
-def create_conditional_rule(rule: ConditionalRuleCreate, db: Session = Depends(get_db)):
+def create_conditional_rule(rule: ConditionalRuleCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if rule.operator not in VALID_OPERATORS:
         raise HTTPException(status_code=422, detail=f"Invalid operator. Must be one of {sorted(VALID_OPERATORS)}")
     if rule.action not in VALID_ACTIONS:
@@ -396,19 +454,19 @@ def create_conditional_rule(rule: ConditionalRuleCreate, db: Session = Depends(g
 
 
 @app.get("/conditional-rules")
-def get_conditional_rules(db: Session = Depends(get_db)):
+def get_conditional_rules(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(ConditionalRule).filter(ConditionalRule.version_id.is_(None)).all()
 
 
 @app.get("/forms/{form_id}/conditional-rules")
-def get_form_conditional_rules(form_id: int, db: Session = Depends(get_db)):
+def get_form_conditional_rules(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(ConditionalRule).filter(
         ConditionalRule.form_id == form_id, ConditionalRule.version_id.is_(None)
     ).all()
 
 
 @app.delete("/conditional-rules/{rule_id}")
-def delete_conditional_rule(rule_id: int, db: Session = Depends(get_db)):
+def delete_conditional_rule(rule_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rule = db.query(ConditionalRule).filter(ConditionalRule.id == rule_id).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
@@ -443,7 +501,7 @@ def evaluate_condition(operator: str, trigger_value, comparison_value) -> bool:
 # =========================================================
 
 @app.put("/forms/{form_id}/publish")
-def publish_form(form_id: int, db: Session = Depends(get_db)):
+def publish_form(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
@@ -592,7 +650,7 @@ def _rule_to_dict(rule):
 
 
 @app.get("/forms/{form_id}/share")
-def get_share_link(form_id: int, db: Session = Depends(get_db)):
+def get_share_link(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
     if not version:
         raise HTTPException(status_code=404, detail="Publish the form first.")
@@ -682,7 +740,7 @@ def download_file(stored_name: str, expires: int, sig: str, db: Session = Depend
 
 
 @app.get("/files/{stored_name}/fresh-link")
-def get_fresh_download_link(stored_name: str, db: Session = Depends(get_db)):
+def get_fresh_download_link(stored_name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     record = db.query(UploadedFile).filter(UploadedFile.stored_name == stored_name).first()
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
@@ -884,10 +942,10 @@ def _process_submission(form_id, fields, rules, version_number, submission_data,
 # =========================================================
 
 @app.get("/submissions")
-def get_submissions(db: Session = Depends(get_db)):
+def get_submissions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Submission).order_by(Submission.id.desc()).all()
 
 
 @app.get("/response-values")
-def get_response_values(db: Session = Depends(get_db)):
+def get_response_values(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(ResponseValue).all()

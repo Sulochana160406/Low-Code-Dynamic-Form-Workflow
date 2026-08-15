@@ -766,3 +766,133 @@ button:disabled, .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   table { display: block; overflow-x: auto; }
   .form-card { padding: 20px; }
 }
+/* =========================================================
+   NAV — user info / logout (admin layout only)
+   ========================================================= */
+
+.nav-spacer {
+  flex: 1;
+}
+
+.nav-user {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.nav-logout {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.nav-logout:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* =========================================================
+   AUTH (Login / Register)
+   ========================================================= */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e3a8a, var(--color-primary));
+  padding: 20px;
+}
+
+.auth-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-card h2 {
+  font-size: 24px;
+  color: var(--color-text);
+}
+
+.auth-subtitle {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  margin-top: -10px;
+}
+
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.auth-card input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 14.5px;
+  font-weight: 400;
+}
+
+.auth-card input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.auth-card button[type="submit"] {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.auth-card button[type="submit"]:hover {
+  background: var(--color-primary-dark);
+}
+
+.auth-card button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}
+
+.auth-switch a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}

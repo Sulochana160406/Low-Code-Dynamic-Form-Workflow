@@ -1,8 +1,21 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, Date
+from sqlalchemy import Column, Integer, String, Boolean, Float, Date, DateTime
 import uuid
+from datetime import datetime
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
+
+# ---------------- USERS (admin/manager accounts) ----------------
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # ---------------- FORMS ----------------

@@ -3,10 +3,82 @@
 // own machine's backend, so local development is unaffected.
 const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+// =========================================================
+// AUTH
+// =========================================================
+const TOKEN_KEY = "formcraft_token";
+const USER_KEY = "formcraft_user";
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredUser() {
+  const raw = localStorage.getItem(USER_KEY);
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function isLoggedIn() {
+  return !!getToken();
+}
+
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+function storeSession(data) {
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+}
+
+export async function login(email, password) {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Login failed");
+  }
+  storeSession(data);
+  return data.user;
+}
+
+export async function register(email, password, name) {
+  const response = await fetch(`${BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || "Registration failed");
+  }
+  storeSession(data);
+  return data.user;
+}
+
+async function authedFetch(path, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+
+  if (response.status === 401) {
+    logout();
+    window.location.href = "/login";
+    throw new Error("Session expired. Please log in again.");
+  }
+  return response;
+}
+
 // ---------------- FORMS ----------------
 
 export async function createForm(formData) {
-  const response = await fetch(`${BASE_URL}/forms`, {
+  const response = await authedFetch(`/forms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(formData),
@@ -15,17 +87,17 @@ export async function createForm(formData) {
 }
 
 export async function getForms() {
-  const response = await fetch(`${BASE_URL}/forms`);
+  const response = await authedFetch(`/forms`);
   return response.json();
 }
 
 export async function getForm(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}`);
+  const response = await authedFetch(`/forms/${formId}`);
   return response.json();
 }
 
 export async function updateForm(formId, formData) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}`, {
+  const response = await authedFetch(`/forms/${formId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(formData),
@@ -34,22 +106,22 @@ export async function updateForm(formId, formData) {
 }
 
 export async function deleteForm(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}`, { method: "DELETE" });
+  const response = await authedFetch(`/forms/${formId}`, { method: "DELETE" });
   return response.json();
 }
 
 export async function publishForm(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}/publish`, { method: "PUT" });
+  const response = await authedFetch(`/forms/${formId}/publish`, { method: "PUT" });
   return response.json();
 }
 
 export async function archiveForm(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}/archive`, { method: "PUT" });
+  const response = await authedFetch(`/forms/${formId}/archive`, { method: "PUT" });
   return response.json();
 }
 
 export async function getShareLink(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}/share`);
+  const response = await authedFetch(`/forms/${formId}/share`);
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.detail || "Unable to get share link");
@@ -58,7 +130,7 @@ export async function getShareLink(formId) {
 }
 
 export async function createFormWithFields(formData) {
-  const response = await fetch(`${BASE_URL}/forms-with-fields`, {
+  const response = await authedFetch(`/forms-with-fields`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(formData),
@@ -69,7 +141,7 @@ export async function createFormWithFields(formData) {
 // ---------------- FIELDS ----------------
 
 export async function createField(fieldData) {
-  const response = await fetch(`${BASE_URL}/fields`, {
+  const response = await authedFetch(`/fields`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fieldData),
@@ -78,12 +150,12 @@ export async function createField(fieldData) {
 }
 
 export async function getFields() {
-  const response = await fetch(`${BASE_URL}/fields`);
+  const response = await authedFetch(`/fields`);
   return response.json();
 }
 
 export async function updateField(fieldId, fieldData) {
-  const response = await fetch(`${BASE_URL}/fields/${fieldId}`, {
+  const response = await authedFetch(`/fields/${fieldId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fieldData),
@@ -92,12 +164,12 @@ export async function updateField(fieldId, fieldData) {
 }
 
 export async function deleteField(fieldId) {
-  const response = await fetch(`${BASE_URL}/fields/${fieldId}`, { method: "DELETE" });
+  const response = await authedFetch(`/fields/${fieldId}`, { method: "DELETE" });
   return response.json();
 }
 
 export async function reorderFields(formId, orderedFields) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}/fields/reorder`, {
+  const response = await authedFetch(`/forms/${formId}/fields/reorder`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fields: orderedFields }),
@@ -108,7 +180,7 @@ export async function reorderFields(formId, orderedFields) {
 // ---------------- FIELD OPTIONS ----------------
 
 export async function createFieldOption(optionData) {
-  const response = await fetch(`${BASE_URL}/field-options`, {
+  const response = await authedFetch(`/field-options`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(optionData),
@@ -119,7 +191,7 @@ export async function createFieldOption(optionData) {
 // ---------------- CONDITIONAL RULES ----------------
 
 export async function createConditionalRule(ruleData) {
-  const response = await fetch(`${BASE_URL}/conditional-rules`, {
+  const response = await authedFetch(`/conditional-rules`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(ruleData),
@@ -128,16 +200,16 @@ export async function createConditionalRule(ruleData) {
 }
 
 export async function getFormConditionalRules(formId) {
-  const response = await fetch(`${BASE_URL}/forms/${formId}/conditional-rules`);
+  const response = await authedFetch(`/forms/${formId}/conditional-rules`);
   return response.json();
 }
 
 export async function deleteConditionalRule(ruleId) {
-  const response = await fetch(`${BASE_URL}/conditional-rules/${ruleId}`, { method: "DELETE" });
+  const response = await authedFetch(`/conditional-rules/${ruleId}`, { method: "DELETE" });
   return response.json();
 }
 
-// ---------------- PUBLIC FORM ACCESS ----------------
+// ---------------- PUBLIC FORM ACCESS (no auth — respondents use these) ----------------
 
 export async function getPublicForm(formId) {
   const response = await fetch(`${BASE_URL}/public/forms/${formId}`);
@@ -151,7 +223,7 @@ export async function getPublicFormByUuid(formUuid) {
   return response.json();
 }
 
-// ---------------- FILE UPLOAD ----------------
+// ---------------- FILE UPLOAD (no auth — respondents use this) ----------------
 
 export async function uploadFile(formId, fieldId, file) {
   const formData = new FormData();
@@ -170,7 +242,7 @@ export async function uploadFile(formId, fieldId, file) {
   return data;
 }
 
-// ---------------- SUBMIT PUBLIC FORM (live/draft view, numeric id) ----------------
+// ---------------- SUBMIT PUBLIC FORM (live/draft view, numeric id — no auth) ----------------
 
 export async function submitPublicForm(formId, data) {
   const response = await fetch(`${BASE_URL}/public/forms/${formId}/submit`, {
@@ -188,7 +260,7 @@ export async function submitPublicForm(formId, data) {
   return result;
 }
 
-// ---------------- SUBMIT PUBLIC FORM (published link, by uuid) ----------------
+// ---------------- SUBMIT PUBLIC FORM (published link, by uuid — no auth) ----------------
 
 export async function submitPublicFormByUuid(formUuid, data) {
   const response = await fetch(`${BASE_URL}/public/form/${formUuid}/submit`, {
@@ -207,7 +279,7 @@ export async function submitPublicFormByUuid(formUuid, data) {
 }
 
 export async function getFreshDownloadLink(storedName) {
-  const response = await fetch(`${BASE_URL}/files/${storedName}/fresh-link`);
+  const response = await authedFetch(`/files/${storedName}/fresh-link`);
   if (!response.ok) throw new Error("File not found");
   return response.json();
 }
@@ -215,11 +287,11 @@ export async function getFreshDownloadLink(storedName) {
 // ---------------- SUBMISSIONS / RESPONSES ----------------
 
 export async function getSubmissions() {
-  const response = await fetch(`${BASE_URL}/submissions`);
+  const response = await authedFetch(`/submissions`);
   return response.json();
 }
 
 export async function getResponses() {
-  const response = await fetch(`${BASE_URL}/response-values`);
+  const response = await authedFetch(`/response-values`);
   return response.json();
 }

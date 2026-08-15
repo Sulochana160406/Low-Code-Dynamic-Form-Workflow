@@ -3,6 +3,25 @@ from typing import Optional, List
 from datetime import date
 
 
+# ---------------- AUTH ----------------
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+
 # ---------------- FORM ----------------
 
 class FormCreate(BaseModel):
