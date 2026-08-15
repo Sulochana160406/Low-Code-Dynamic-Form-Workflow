@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getForms, getResponses } from "../services/api";
+import { getForms, getSubmissions } from "../services/api";
 
 function Dashboard() {
   const [forms, setForms] = useState([]);
@@ -23,8 +23,8 @@ function Dashboard() {
       return null;
     });
 
-    const responsesResult = await getResponses().catch((error) => {
-      console.log("Failed to load responses:", error);
+    const responsesResult = await getSubmissions().catch((error) => {
+      console.log("Failed to load submissions:", error);
       return null;
     });
 
