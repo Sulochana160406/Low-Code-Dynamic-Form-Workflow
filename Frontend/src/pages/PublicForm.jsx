@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPublicForm, getPublicFormByUuid, submitPublicForm, submitPublicFormByUuid, uploadFile } from "../services/api";
+import { getPublicForm, getPublicFormByUuid, submitPublicForm, submitPublicFormByUuid, uploadFile, startPublicForm, startPublicFormByUuid } from "../services/api";
 
 function evaluateCondition(operator, triggerValue, comparisonValue) {
   const t = (triggerValue ?? "").toString().trim();
@@ -30,6 +30,7 @@ function PublicForm() {
   const [uploadingFieldId, setUploadingFieldId] = useState(null);
   const [uploadedFileNames, setUploadedFileNames] = useState({});
   const [submitterName, setSubmitterName] = useState("");
+  const [sessionSubmissionId, setSessionSubmissionId] = useState(null);
 
   useEffect(() => {
     loadForm();
@@ -44,6 +45,15 @@ function PublicForm() {
     try {
       const data = isUuid(id) ? await getPublicFormByUuid(id) : await getPublicForm(id);
       setForm(data);
+
+      // Fire-and-forget: records that someone opened the form, so the
+      // dashboard's completion rate (started vs. submitted) is accurate.
+      // A failure here should never block the respondent from filling
+      // out the form, so it's deliberately not awaited or error-handled.
+      const startResult = isUuid(id) ? await startPublicFormByUuid(id) : await startPublicForm(data.id);
+      if (startResult?.submission_id) {
+        setSessionSubmissionId(startResult.submission_id);
+      }
     } catch (error) {
       console.log(error);
       setNotFound(true);
@@ -115,6 +125,7 @@ function PublicForm() {
 
       const payload = {
         submitted_by: submitterName.trim(),
+        submission_id: sessionSubmissionId,
         responses: visibleFields.map((field) => ({
           field_id: field.id,
           value: Array.isArray(responses[field.id])

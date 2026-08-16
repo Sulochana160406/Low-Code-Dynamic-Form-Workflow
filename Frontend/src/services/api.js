@@ -284,6 +284,20 @@ export async function getFreshDownloadLink(storedName) {
   return response.json();
 }
 
+// ---------------- FORM SESSION START (no auth — pings when a respondent opens the form) ----------------
+
+export async function startPublicForm(formId) {
+  const response = await fetch(`${BASE_URL}/public/forms/${formId}/start`, { method: "POST" });
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function startPublicFormByUuid(formUuid) {
+  const response = await fetch(`${BASE_URL}/public/form/${formUuid}/start`, { method: "POST" });
+  if (!response.ok) return null;
+  return response.json();
+}
+
 // ---------------- SUBMISSIONS / RESPONSES ----------------
 
 export async function getSubmissions() {
@@ -293,5 +307,126 @@ export async function getSubmissions() {
 
 export async function getResponses() {
   const response = await authedFetch(`/response-values`);
+  return response.json();
+}
+
+// ---------------- MILESTONE 3: ANALYTICS ----------------
+
+export async function getFormAnalytics(formId) {
+  const response = await authedFetch(`/forms/${formId}/analytics`);
+  if (!response.ok) throw new Error("Unable to load analytics");
+  return response.json();
+}
+
+// ---------------- MILESTONE 3: RESPONSE BROWSER (filter + paginate) ----------------
+
+export async function listFormResponses(formId, filters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") params.set(key, value);
+  });
+  const query = params.toString();
+  const response = await authedFetch(`/forms/${formId}/responses${query ? `?${query}` : ""}`);
+  if (!response.ok) throw new Error("Unable to load responses");
+  return response.json();
+}
+
+export async function getFormResponse(formId, responseId) {
+  const response = await authedFetch(`/forms/${formId}/responses/${responseId}`);
+  if (!response.ok) throw new Error("Unable to load response");
+  return response.json();
+}
+
+// ---------------- MILESTONE 3: EXPORT ----------------
+// Export needs the auth header, so it can't be a plain <a href> link —
+// fetch it as a blob and trigger the browser's normal download/save flow.
+
+export async function exportFormResponses(formId, format) {
+  const response = await authedFetch(`/forms/${formId}/responses/export?format=${format}`);
+  if (!response.ok) throw new Error("Export failed");
+
+  if (format === "json") {
+    const data = await response.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `form_${formId}_responses.json`);
+    return;
+  }
+
+  const blob = await response.blob();
+  downloadBlob(blob, `form_${formId}_responses.csv`);
+}
+
+function downloadBlob(blob, filename) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+// ---------------- MILESTONE 3: RULE VISUALIZER ----------------
+
+export async function getFormRules(formId) {
+  const response = await authedFetch(`/forms/${formId}/rules`);
+  if (!response.ok) throw new Error("Unable to load rules");
+  return response.json();
+}
+
+// ---------------- MILESTONE 3: FORM DUPLICATION ----------------
+
+export async function duplicateForm(formId) {
+  const response = await authedFetch(`/forms/${formId}/duplicate`, { method: "POST" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Duplicate failed");
+  return data;
+}
+
+// ---------------- MILESTONE 3: RETENTION ----------------
+
+export async function getRetentionPolicy(formId) {
+  const response = await authedFetch(`/forms/${formId}/retention`);
+  if (!response.ok) throw new Error("Unable to load retention policy");
+  return response.json();
+}
+
+export async function setRetentionPolicy(formId, retentionDays, isEnabled) {
+  const response = await authedFetch(`/forms/${formId}/retention`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ retention_days: retentionDays, is_enabled: isEnabled }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Unable to save retention policy");
+  return data;
+}
+
+export async function runRetention(formId) {
+  const response = await authedFetch(`/forms/${formId}/retention/run`, { method: "POST" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Retention run failed");
+  return data;
+}
+
+// ---------------- MILESTONE 3: BULK DELETE ----------------
+
+export async function bulkDeleteResponses(responseIds, soft = true) {
+  const response = await authedFetch(`/responses/bulk-delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response_ids: responseIds, soft }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Bulk delete failed");
+  return data;
+}
+
+// ---------------- MILESTONE 3: AUDIT LOG ----------------
+
+export async function getAuditLogs(page = 1, pageSize = 20) {
+  const response = await authedFetch(`/audit-logs?page=${page}&page_size=${pageSize}`);
+  if (!response.ok) throw new Error("Unable to load audit logs");
   return response.json();
 }

@@ -127,7 +127,16 @@ class Submission(Base):
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(Integer, nullable=False)
     version_number = Column(Integer, nullable=False, default=1)
-    submitted_by = Column(String(255), nullable=False)
+    submitted_by = Column(String(255), nullable=True)
+
+    # Analytics/retention fields (Milestone 3).
+    # status: "In Progress" (form opened, not yet submitted),
+    #         "Completed" (submitted successfully),
+    #         "Archived" (past retention window), "Deleted" (soft-deleted).
+    status = Column(String(50), nullable=False, default="Completed")
+    started_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, nullable=True)
+    completion_time_seconds = Column(Integer, nullable=True)
 
 
 # ---------------- RESPONSE VALUES ----------------
@@ -154,3 +163,30 @@ class UploadedFile(Base):
     stored_name = Column(String(255), nullable=False)
     content_type = Column(String(100), nullable=True)
     file_size = Column(Integer, nullable=False)
+
+
+# ---------------- AUDIT LOGS ----------------
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    action = Column(String(100), nullable=False)       # e.g. DELETE_RESPONSE, DUPLICATE_FORM
+    entity_type = Column(String(50), nullable=False)   # e.g. Submission, Form
+    entity_id = Column(Integer, nullable=True)
+    details_json = Column(String(1000), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------- RETENTION POLICIES ----------------
+
+class RetentionPolicy(Base):
+    __tablename__ = "retention_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(Integer, nullable=False, unique=True)
+    retention_days = Column(Integer, nullable=False, default=365)
+    is_enabled = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

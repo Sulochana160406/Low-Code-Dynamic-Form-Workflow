@@ -164,5 +164,22 @@ class ResponseItem(BaseModel):
 
 
 class SubmitFormCreate(BaseModel):
-    submitted_by: str
+    submitted_by: Optional[str] = None
     responses: List[ResponseItem]
+    # If the frontend pinged /public/.../start when the form was opened, it
+    # passes that submission's id back here so the SAME row gets marked
+    # Completed (with an accurate started_at → submitted_at duration)
+    # instead of a brand-new row being created with no start time.
+    submission_id: Optional[int] = None
+
+
+# ---------------- MILESTONE 3: BULK DELETE / RETENTION ----------------
+
+class BulkDeleteRequest(BaseModel):
+    response_ids: List[int]
+    soft: bool = True  # True = mark status "Deleted"; False = permanently remove
+
+
+class RetentionPolicyUpdate(BaseModel):
+    retention_days: int
+    is_enabled: bool
