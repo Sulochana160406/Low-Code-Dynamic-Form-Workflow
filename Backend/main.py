@@ -109,6 +109,16 @@ def home():
 
 @app.post("/auth/register")
 def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    # Registration is only open until the FIRST admin account is created.
+    # After that, this endpoint is locked — otherwise anyone who finds the
+    # link could create their own admin account and get full dashboard
+    # access, defeating the whole point of adding auth.
+    if db.query(User).count() > 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Registration is closed. An admin account already exists — please log in instead.",
+        )
+
     existing = db.query(User).filter(User.email == user_data.email.lower().strip()).first()
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists.")

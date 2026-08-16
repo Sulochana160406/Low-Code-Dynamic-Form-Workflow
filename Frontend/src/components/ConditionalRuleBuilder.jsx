@@ -15,45 +15,43 @@ const ACTIONS = [
 ];
 
 function ConditionalRuleBuilder({ questions, rules, onAdd, onDelete }) {
-  const [triggerIndex, setTriggerIndex] = useState("");
+  const [triggerTempId, setTriggerTempId] = useState("");
   const [operator, setOperator] = useState("equals");
   const [comparisonValue, setComparisonValue] = useState("");
-  const [targetIndex, setTargetIndex] = useState("");
+  const [targetTempId, setTargetTempId] = useState("");
   const [action, setAction] = useState("show");
 
-  const savedQuestions = questions.filter((q) => q.id);
-
   const handleAdd = () => {
-    if (triggerIndex === "" || targetIndex === "") {
+    if (triggerTempId === "" || targetTempId === "") {
       alert("Please choose both a trigger field and a target field.");
       return;
     }
-    if (triggerIndex === targetIndex) {
+    if (triggerTempId === targetTempId) {
       alert("Trigger field and target field must be different.");
       return;
     }
 
     onAdd({
-      trigger_field_id: Number(triggerIndex),
+      trigger_tempId: triggerTempId,
       operator,
       comparison_value: operator === "is_empty" ? null : comparisonValue,
-      target_field_id: Number(targetIndex),
+      target_tempId: targetTempId,
       action,
     });
 
-    setTriggerIndex("");
+    setTriggerTempId("");
     setComparisonValue("");
-    setTargetIndex("");
+    setTargetTempId("");
   };
 
-  const labelFor = (fieldId) =>
-    questions.find((q) => q.id === fieldId)?.label || `Field #${fieldId}`;
+  const labelFor = (tempId) =>
+    questions.find((q) => q.tempId === tempId)?.label || "(deleted question)";
 
-  if (savedQuestions.length < 2) {
+  if (questions.length < 2) {
     return (
       <div className="question-list-empty">
-        Save at least 2 questions first (click "Update Form" / "Create Form"), then come
-        back here to add conditional rules between them.
+        Add at least 2 questions above first, then come back here to add conditional rules
+        between them.
       </div>
     );
   }
@@ -63,10 +61,10 @@ function ConditionalRuleBuilder({ questions, rules, onAdd, onDelete }) {
       <div className="rule-builder-grid">
         <div className="form-group">
           <label className="form-label">IF this field…</label>
-          <select value={triggerIndex} onChange={(e) => setTriggerIndex(e.target.value)}>
+          <select value={triggerTempId} onChange={(e) => setTriggerTempId(e.target.value)}>
             <option value="">Select trigger field</option>
-            {savedQuestions.map((q) => (
-              <option key={q.id} value={q.id}>{q.label}</option>
+            {questions.map((q) => (
+              <option key={q.tempId} value={q.tempId}>{q.label}</option>
             ))}
           </select>
         </div>
@@ -106,10 +104,10 @@ function ConditionalRuleBuilder({ questions, rules, onAdd, onDelete }) {
 
         <div className="form-group">
           <label className="form-label">…this field</label>
-          <select value={targetIndex} onChange={(e) => setTargetIndex(e.target.value)}>
+          <select value={targetTempId} onChange={(e) => setTargetTempId(e.target.value)}>
             <option value="">Select target field</option>
-            {savedQuestions.map((q) => (
-              <option key={q.id} value={q.id}>{q.label}</option>
+            {questions.map((q) => (
+              <option key={q.tempId} value={q.tempId}>{q.label}</option>
             ))}
           </select>
         </div>
@@ -122,19 +120,20 @@ function ConditionalRuleBuilder({ questions, rules, onAdd, onDelete }) {
           <div className="question-list-empty">No conditional rules yet.</div>
         ) : (
           rules.map((rule) => (
-            <div className="rule-card" key={rule.id}>
+            <div className="rule-card" key={rule.tempId}>
               <div className="rule-sentence">
-                IF <b>{labelFor(rule.trigger_field_id)}</b>{" "}
+                IF <b>{labelFor(rule.trigger_tempId)}</b>{" "}
                 {OPERATORS.find((o) => o.value === rule.operator)?.label}
                 {rule.operator !== "is_empty" && (
                   <> "<b>{rule.comparison_value}</b>"</>
                 )}{" "}
-                THEN <b>{rule.action}</b> <b>{labelFor(rule.target_field_id)}</b>
+                THEN <b>{rule.action}</b> <b>{labelFor(rule.target_tempId)}</b>
+                {!rule.db_id && <span className="unsaved-badge"> (not saved yet)</span>}
               </div>
               <button
                 type="button"
                 className="btn-icon danger"
-                onClick={() => onDelete(rule.id)}
+                onClick={() => onDelete(rule.tempId)}
                 title="Delete rule"
               >
                 🗑

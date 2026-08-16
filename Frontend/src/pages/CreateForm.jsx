@@ -41,17 +41,39 @@ function CreateForm() {
       setTitle(data.title);
       setDescription(data.description);
 
-      setQuestions(
-        data.fields.map((field) => ({
-          id: field.id,
-          label: field.field_label,
-          type: field.field_type,
-          required: field.required,
-          options: field.options || [],
-        }))
-      );
+      // Every question gets a tempId, whether it's brand-new (added just
+      // now) or already saved (loaded from the backend). The rule builder
+      // only ever works off tempId, so both kinds of questions look the
+      // same to it.
+      const loadedQuestions = data.fields.map((field) => ({
+        tempId: crypto.randomUUID(),
+        id: field.id,
+        label: field.field_label,
+        type: field.field_type,
+        required: field.required,
+        options: field.options || [],
+      }));
+      setQuestions(loadedQuestions);
 
-      setRules(data.conditional_rules || []);
+      // Existing rules reference real backend field IDs. Translate those
+      // to the tempIds we just assigned above, so the rule builder's
+      // dropdowns (which are keyed by tempId) can show the right
+      // trigger/target selected.
+      const idToTempId = {};
+      loadedQuestions.forEach((q) => {
+        idToTempId[q.id] = q.tempId;
+      });
+
+      const loadedRules = (data.conditional_rules || []).map((r) => ({
+        tempId: crypto.randomUUID(),
+        db_id: r.id,
+        trigger_tempId: idToTempId[r.trigger_field_id],
+        operator: r.operator,
+        comparison_value: r.comparison_value,
+        target_tempId: idToTempId[r.target_field_id],
+        action: r.action,
+      }));
+      setRules(loadedRules);
     } catch (error) {
       console.log(error);
       alert("Error loading form");
@@ -75,6 +97,15 @@ function CreateForm() {
     }
 
     setQuestions(questions.filter((_, i) => i !== index));
+
+    // A rule pointing at a question that no longer exists can't be saved
+    // (there'd be nothing to resolve its field ID to), so drop it too.
+    setRules(
+      rules.filter(
+        (r) =>
+          r.trigger_tempId !== question.tempId && r.target_tempId !== question.tempId
+      )
+    );
   };
 
   // ---------------- REORDER QUESTIONS ----------------
@@ -93,23 +124,57 @@ function CreateForm() {
   };
 
   // ---------------- CONDITIONAL RULES ----------------
-  const handleAddRule = async (ruleData) => {
-    try {
-      const result = await createConditionalRule({ form_id: Number(id), ...ruleData });
-      setRules([...rules, { id: result.data.id, ...ruleData }]);
-    } catch (error) {
-      console.log(error);
-      alert("Error adding rule");
-    }
+  // Rules are built purely on the client while the form is being edited —
+  // no API call here. This is what lets rules be added on the CREATE page
+  // too, before any field has a real backend ID yet. They only get sent
+  // to the backend inside handleSubmit, once every question involved has
+  // been saved and has a real field ID to resolve to.
+  const handleAddRule = (ruleData) => {
+    setRules([...rules, { tempId: crypto.randomUUID(), ...ruleData }]);
   };
 
-  const handleDeleteRule = async (ruleId) => {
-    try {
-      await deleteConditionalRule(ruleId);
-      setRules(rules.filter((r) => r.id !== ruleId));
-    } catch (error) {
-      console.log(error);
-      alert("Error deleting rule");
+  const handleDeleteRule = async (tempId) => {
+    const rule = rules.find((r) => r.tempId === tempId);
+    if (!rule) return;
+
+    if (rule.db_id) {
+      if (!window.confirm("Delete this saved rule?")) return;
+      try {
+        await deleteConditionalRule(rule.db_id);
+      } catch (error) {
+        console.log(error);
+        alert("Error deleting rule");
+        return;
+      }
+    }
+
+    setRules(rules.filter((r) => r.tempId !== tempId));
+  };
+
+  // Sends every rule that hasn't been saved to the backend yet (no db_id),
+  // resolving each side's tempId to the real field ID via the map built
+  // during this save. Called once, after all fields for this save exist.
+  const savePendingRules = async (formId, tempIdToRealId) => {
+    const pending = rules.filter((r) => !r.db_id);
+
+    for (const rule of pending) {
+      const triggerFieldId = tempIdToRealId[rule.trigger_tempId];
+      const targetFieldId = tempIdToRealId[rule.target_tempId];
+
+      if (!triggerFieldId || !targetFieldId) {
+        // One of the fields this rule pointed at is missing/unsaved —
+        // skip rather than send a broken rule to the backend.
+        continue;
+      }
+
+      await createConditionalRule({
+        form_id: Number(formId),
+        trigger_field_id: triggerFieldId,
+        operator: rule.operator,
+        comparison_value: rule.comparison_value,
+        target_field_id: targetFieldId,
+        action: rule.action,
+      });
     }
   };
 
@@ -140,6 +205,14 @@ function CreateForm() {
 
         await updateForm(id, { title, description });
 
+        // Seed the map with questions that were already saved before this
+        // edit session (they keep their real id — no createField call
+        // needed), then fill in newly-added questions as they're created.
+        const tempIdToRealId = {};
+        questions.forEach((q) => {
+          if (q.id) tempIdToRealId[q.tempId] = q.id;
+        });
+
         for (const question of questions) {
           if (question.id) continue;
 
@@ -161,6 +234,7 @@ function CreateForm() {
           });
 
           question.id = savedField.data.id;
+          tempIdToRealId[question.tempId] = savedField.data.id;
 
           if (
             (question.type === "dropdown" || question.type === "multi-checkbox") &&
@@ -180,6 +254,8 @@ function CreateForm() {
           await reorderFields(id, orderedFields);
         }
 
+        await savePendingRules(id, tempIdToRealId);
+
         alert("Form Updated Successfully!");
         navigate("/forms-list");
         return;
@@ -187,6 +263,7 @@ function CreateForm() {
 
       // ---------------- CREATE NEW FORM ----------------
       const form = await createForm({ title, description });
+      const tempIdToRealId = {};
 
       for (const question of questions) {
         const savedField = await createField({
@@ -206,6 +283,8 @@ function CreateForm() {
           rating_scale: question.rating_scale ?? null,
         });
 
+        tempIdToRealId[question.tempId] = savedField.data.id;
+
         if (
           (question.type === "dropdown" || question.type === "multi-checkbox") &&
           question.options.length > 0
@@ -215,6 +294,8 @@ function CreateForm() {
           }
         }
       }
+
+      await savePendingRules(form.id, tempIdToRealId);
 
       alert("Form and Questions Saved Successfully!");
       navigate("/forms-list");
@@ -254,21 +335,19 @@ function CreateForm() {
           onMoveDown={handleMoveDown}
         />
 
-        {id && (
-          <>
-            <hr />
-            <div className="section-title">🔀 Conditional Rules</div>
-            <p className="form-hint" style={{ marginBottom: "16px" }}>
-              Control which questions show, hide, or become required based on other answers.
-            </p>
-            <ConditionalRuleBuilder
-              questions={questions}
-              rules={rules}
-              onAdd={handleAddRule}
-              onDelete={handleDeleteRule}
-            />
-          </>
-        )}
+        <hr />
+        <div className="section-title">🔀 Conditional Rules</div>
+        <p className="form-hint" style={{ marginBottom: "16px" }}>
+          Control which questions show, hide, or become required based on other answers.
+          Rules are saved together with the form when you click{" "}
+          {id ? "Update Form" : "Create Form"} below.
+        </p>
+        <ConditionalRuleBuilder
+          questions={questions}
+          rules={rules}
+          onAdd={handleAddRule}
+          onDelete={handleDeleteRule}
+        />
 
         <div style={{ marginTop: "28px", textAlign: "center" }}>
           <button onClick={handleSubmit} className="submit-btn" disabled={saving}>
