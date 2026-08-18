@@ -6,6 +6,7 @@ import {
   archiveForm,
   getShareLink,
   deleteForm,
+  duplicateForm,
 } from "../services/api";
 
 function FormsList() {
@@ -63,6 +64,20 @@ function FormsList() {
   };
 
   const handleEdit = (id) => navigate(`/edit-form/${id}`);
+
+  const handleAnalytics = (id) => navigate(`/forms/${id}/analytics`);
+
+  const handleDuplicate = async (id, title) => {
+    if (!window.confirm(`Duplicate "${title}" as a new draft?`)) return;
+    try {
+      await duplicateForm(id);
+      alert("Form duplicated successfully!");
+      loadForms();
+    } catch (error) {
+      console.log(error);
+      alert("Duplicate failed");
+    }
+  };
 
   const handleView = (id) => window.open(`/form/${id}`, "_blank");
 
@@ -161,6 +176,14 @@ function FormsList() {
                     <div className="btn-row">
                       <button className="btn btn-outline btn-sm" onClick={() => handleEdit(form.id)}>
                         Edit
+                      </button>
+
+                      <button className="btn btn-outline btn-sm" onClick={() => handleAnalytics(form.id)}>
+                        📊 Analytics
+                      </button>
+
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(form.id, form.title)}>
+                        🧬 Duplicate
                       </button>
 
                       {form.status !== "Archived" && (

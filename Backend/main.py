@@ -1198,11 +1198,8 @@ def get_form_response(form_id: int, response_id: int, db: Session = Depends(get_
     for rv in values:
         field = fields.get(rv.field_id)
         label = field.field_label if field else f"Field {rv.field_id}"
-        value = rv.value
-        if field and field.field_type == "file" and value:
-            value = generate_signed_url(value)
-        answers.append({"field_id": rv.field_id, "label": label, "value": value})
-
+        field_type = field.field_type if field else "text"
+        answers.append({"field_id": rv.field_id, "label": label, "type": field_type, "value": rv.value})
     return {
         "id": submission.id,
         "status": submission.status,

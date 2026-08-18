@@ -11,6 +11,8 @@ import FormsList from "./pages/FormsList";
 import PublicForm from "./pages/PublicForm";
 import ThankYou from "./pages/ThankYou";
 import Responses from "./pages/Responses";
+import FormAnalytics from "./pages/FormAnalytics";
+import AuditLog from "./pages/AuditLog";
 
 function App() {
   return (
@@ -33,7 +35,9 @@ function App() {
         <Route path="/create-form" element={<CreateForm />} />
         <Route path="/edit-form/:id" element={<CreateForm />} />
         <Route path="/forms-list" element={<FormsList />} />
+        <Route path="/forms/:id/analytics" element={<FormAnalytics />} />
         <Route path="/responses" element={<Responses />} />
+        <Route path="/audit-log" element={<AuditLog />} />
       </Route>
     </Routes>
   );

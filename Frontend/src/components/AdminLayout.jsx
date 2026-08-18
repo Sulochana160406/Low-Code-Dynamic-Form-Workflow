@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/create-form", label: "Create Form", icon: "\u270E" },
   { to: "/forms-list", label: "Forms List", icon: "\u2637" },
   { to: "/responses", label: "Responses", icon: "\u2611" },
+  { to: "/audit-log", label: "Audit Log", icon: "\u{1F575}" },
 ];
 
 const THEME_KEY = "formcraft_theme";
