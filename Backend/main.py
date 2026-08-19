@@ -1077,23 +1077,27 @@ def get_form_analytics(form_id: int, db: Session = Depends(get_db), current_user
     durations = [s.completion_time_seconds for s in completed if s.completion_time_seconds]
     average_time = round(sum(durations) / len(durations)) if durations else 0
 
-    fields = db.query(Field).filter(Field.form_id == form_id, Field.version_id.is_(None)).all()
-    distributable = [f for f in fields if f.field_type in ("dropdown", "rating")]
+    all_fields = db.query(Field).filter(Field.form_id == form_id).all()
+    distributable_field_ids_by_label = {}
+    for f in all_fields:
+        if f.field_type in ("dropdown", "rating"):
+            distributable_field_ids_by_label.setdefault(f.field_label, []).append(f.id)
+
     completed_ids = [s.id for s in completed]
 
     field_distributions = {}
-    for field in distributable:
+    for label, field_ids in distributable_field_ids_by_label.items():
         counts = {}
         if completed_ids:
             values = (
                 db.query(ResponseValue.value)
-                .filter(ResponseValue.field_id == field.id, ResponseValue.submission_id.in_(completed_ids))
+                .filter(ResponseValue.field_id.in_(field_ids), ResponseValue.submission_id.in_(completed_ids))
                 .all()
             )
             for (v,) in values:
                 if v:
                     counts[v] = counts.get(v, 0) + 1
-        field_distributions[field.field_label] = counts
+        field_distributions[label] = counts
 
     return {
         "form_id": form.id,
@@ -1217,9 +1221,16 @@ def export_form_responses(form_id: int, format: str = "csv", db: Session = Depen
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
-    fields = db.query(Field).filter(Field.form_id == form_id, Field.version_id.is_(None)).order_by(Field.order.asc()).all()
-    field_labels = {f.id: f.field_label for f in fields}
-    file_field_ids = {f.id for f in fields if f.field_type == "file"}
+    all_fields = db.query(Field).filter(Field.form_id == form_id).order_by(Field.order.asc(), Field.id.asc()).all()
+    field_labels = {}
+    file_field_ids = set()
+    ordered_labels = []
+    for f in all_fields:
+        field_labels[f.id] = f.field_label
+        if f.field_type == "file":
+            file_field_ids.add(f.id)
+        if f.field_label not in ordered_labels:
+            ordered_labels.append(f.field_label)
 
     submissions = (
         db.query(Submission)
