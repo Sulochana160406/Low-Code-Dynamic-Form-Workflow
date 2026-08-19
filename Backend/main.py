@@ -1077,6 +1077,10 @@ def get_form_analytics(form_id: int, db: Session = Depends(get_db), current_user
     durations = [s.completion_time_seconds for s in completed if s.completion_time_seconds]
     average_time = round(sum(durations) / len(durations)) if durations else 0
 
+    # Response values can reference EITHER the live/draft field IDs or a
+    # published version's snapshot field IDs (each publish creates fresh
+    # copies with new IDs) depending on when the respondent filled the
+    # form. Group by label across every version so nothing gets missed.
     all_fields = db.query(Field).filter(Field.form_id == form_id).all()
     distributable_field_ids_by_label = {}
     for f in all_fields:
@@ -1189,38 +1193,16 @@ def list_form_responses(
     }
 
 
-@app.get("/forms/{form_id}/responses/{response_id}")
-def get_form_response(form_id: int, response_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    submission = db.query(Submission).filter(Submission.id == response_id, Submission.form_id == form_id).first()
-    if not submission:
-        raise HTTPException(status_code=404, detail="Response not found")
-
-    fields = {f.id: f for f in db.query(Field).filter(Field.form_id == form_id).all()}
-    values = db.query(ResponseValue).filter(ResponseValue.submission_id == response_id).all()
-
-    answers = []
-    for rv in values:
-        field = fields.get(rv.field_id)
-        label = field.field_label if field else f"Field {rv.field_id}"
-        field_type = field.field_type if field else "text"
-        answers.append({"field_id": rv.field_id, "label": label, "type": field_type, "value": rv.value})
-    return {
-        "id": submission.id,
-        "status": submission.status,
-        "submitted_by": submission.submitted_by,
-        "started_at": submission.started_at,
-        "submitted_at": submission.submitted_at,
-        "completion_time_seconds": submission.completion_time_seconds,
-        "answers": answers,
-    }
-
-
 @app.get("/forms/{form_id}/responses/export")
 def export_form_responses(form_id: int, format: str = "csv", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    # Same reasoning as analytics: a submission's response_values may
+    # reference live-draft field IDs or a published snapshot's field IDs.
+    # Build the label lookup from every version, and use ordered unique
+    # labels as the CSV/JSON columns.
     all_fields = db.query(Field).filter(Field.form_id == form_id).order_by(Field.order.asc(), Field.id.asc()).all()
     field_labels = {}
     file_field_ids = set()
@@ -1258,10 +1240,45 @@ def export_form_responses(form_id: int, format: str = "csv", db: Session = Depen
     if format == "json":
         return rows
 
-    headers = ["Response ID", "Submitted By", "Submitted At"] + [f.field_label for f in fields]
+    headers = ["Response ID", "Submitted By", "Submitted At"] + ordered_labels
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore")
     writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=form_{form_id}_responses.csv"},
+    )
+
+
+@app.get("/forms/{form_id}/responses/{response_id}")
+def get_form_response(form_id: int, response_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    submission = db.query(Submission).filter(Submission.id == response_id, Submission.form_id == form_id).first()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Response not found")
+
+    fields = {f.id: f for f in db.query(Field).filter(Field.form_id == form_id).all()}
+    values = db.query(ResponseValue).filter(ResponseValue.submission_id == response_id).all()
+
+    answers = []
+    for rv in values:
+        field = fields.get(rv.field_id)
+        label = field.field_label if field else f"Field {rv.field_id}"
+        field_type = field.field_type if field else "text"
+        answers.append({"field_id": rv.field_id, "label": label, "type": field_type, "value": rv.value})
+    return {
+        "id": submission.id,
+        "status": submission.status,
+        "submitted_by": submission.submitted_by,
+        "started_at": submission.started_at,
+        "submitted_at": submission.submitted_at,
+        "completion_time_seconds": submission.completion_time_seconds,
+        "answers": answers,
+    }
     for row in rows:
         writer.writerow(row)
     output.seek(0)
