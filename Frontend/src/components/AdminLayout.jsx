@@ -85,7 +85,7 @@ function AdminLayout() {
               aria-label="Open navigation menu"
               aria-expanded={navMenuOpen}
             >
-              ⋮
+              ☰
             </button>
 
             {navMenuOpen && (

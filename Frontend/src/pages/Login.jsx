@@ -24,42 +24,62 @@ function Login() {
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <h2>Admin Login</h2>
-        <p className="auth-subtitle">Sign in to manage your forms</p>
+    <div className="auth-split">
+      <div className="auth-brand-panel">
+        <div className="auth-brand-mark">
+          <span className="sidebar-logo">FC</span>
+          <span className="auth-brand-name">FormCraft</span>
+        </div>
+        <div className="auth-brand-copy">
+          <h1>Build forms.<br />Understand your data.</h1>
+          <p>Conditional logic, live analytics, and export — all in one workspace.</p>
+        </div>
+        <ul className="auth-feature-list">
+          <li>Drag-free dynamic form builder</li>
+          <li>Response analytics &amp; CSV/JSON export</li>
+          <li>Retention policies &amp; audit history</li>
+        </ul>
+      </div>
 
-        {error && <div className="auth-error">{error}</div>}
+      <div className="auth-form-panel">
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <h2>Welcome back</h2>
+          <p className="auth-subtitle">Sign in to manage your forms</p>
 
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoFocus
-          />
-        </label>
+          {error && <div className="auth-error">{error}</div>}
 
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+              placeholder="you@example.com"
+            />
+          </label>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </label>
 
-        <p className="auth-switch">
-          Don't have an account? <Link to="/register">Register</Link>
-        </p>
-      </form>
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+
+          <p className="auth-switch">
+            Don't have an account? <Link to="/register">Register</Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

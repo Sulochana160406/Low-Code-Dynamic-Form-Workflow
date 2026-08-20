@@ -25,52 +25,73 @@ function Register() {
   };
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <h2>Create Admin Account</h2>
-        <p className="auth-subtitle">Set up access to your dashboard</p>
+    <div className="auth-split">
+      <div className="auth-brand-panel">
+        <div className="auth-brand-mark">
+          <span className="sidebar-logo">FC</span>
+          <span className="auth-brand-name">FormCraft</span>
+        </div>
+        <div className="auth-brand-copy">
+          <h1>Build forms.<br />Understand your data.</h1>
+          <p>Conditional logic, live analytics, and export — all in one workspace.</p>
+        </div>
+        <ul className="auth-feature-list">
+          <li>Drag-free dynamic form builder</li>
+          <li>Response analytics &amp; CSV/JSON export</li>
+          <li>Retention policies &amp; audit history</li>
+        </ul>
+      </div>
 
-        {error && <div className="auth-error">{error}</div>}
+      <div className="auth-form-panel">
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <h2>Create your account</h2>
+          <p className="auth-subtitle">Set up access to your dashboard</p>
 
-        <label>
-          Name
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </label>
+          {error && <div className="auth-error">{error}</div>}
 
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
+          <label>
+            Name
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              placeholder="Your name"
+            />
+          </label>
 
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-        </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+            />
+          </label>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating account..." : "Register"}
-        </button>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              placeholder="At least 6 characters"
+            />
+          </label>
 
-        <p className="auth-switch">
-          Already have an account? <Link to="/login">Sign In</Link>
-        </p>
-      </form>
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? "Creating account…" : "Register"}
+          </button>
+
+          <p className="auth-switch">
+            Already have an account? <Link to="/login">Sign In</Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
