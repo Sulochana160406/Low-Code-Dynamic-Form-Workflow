@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { logout, getStoredUser } from "../services/api";
 
 const NAV_ITEMS = [
@@ -20,10 +20,13 @@ function getInitialTheme() {
 
 function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getStoredUser();
 
   const [theme, setTheme] = useState(getInitialTheme);
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const navMenuRef = useRef(null);
   const profileRef = useRef(null);
 
   useEffect(() => {
@@ -31,8 +34,17 @@ function AdminLayout() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  // Close the nav menu on every navigation, so it never stays open
+  // pointing at a page you already left.
+  useEffect(() => {
+    setNavMenuOpen(false);
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleClickOutside(e) {
+      if (navMenuRef.current && !navMenuRef.current.contains(e.target)) {
+        setNavMenuOpen(false);
+      }
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setProfileOpen(false);
       }
@@ -60,23 +72,43 @@ function AdminLayout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="sidebar-logo">FC</span>
-          <span className="sidebar-brand-text">FormCraft</span>
+          <div className="sidebar-brand-left">
+            <span className="sidebar-logo">FC</span>
+            <span className="sidebar-brand-text">FormCraft</span>
+          </div>
+
+          <div className="nav-menu" ref={navMenuRef}>
+            <button
+              type="button"
+              className={`nav-menu-trigger${navMenuOpen ? " active" : ""}`}
+              onClick={() => setNavMenuOpen((v) => !v)}
+              aria-label="Open navigation menu"
+              aria-expanded={navMenuOpen}
+            >
+              ⋮
+            </button>
+
+            {navMenuOpen && (
+              <div className="nav-menu-dropdown">
+                <nav className="sidebar-nav">
+                  {NAV_ITEMS.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) => (isActive ? "active" : undefined)}
+                    >
+                      <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </nav>
+              </div>
+            )}
+          </div>
         </div>
 
-        <nav className="sidebar-nav">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? "active" : undefined)}
-            >
-              <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
+        <div className="sidebar-middle" />
 
         <div className="sidebar-footer">
           <button
