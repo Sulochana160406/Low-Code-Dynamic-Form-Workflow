@@ -68,8 +68,14 @@ function Settings() {
         <div className="form-group" style={{ maxWidth: "260px" }}>
           <select value={language} onChange={(e) => setLanguage(e.target.value)}>
             <option value="en">English</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="hi">हिन्दी (Hindi)</option>
           </select>
-          <p className="form-hint">More languages coming soon.</p>
+          <p className="form-hint">
+            {language === "en" && "Interface language: English."}
+            {language === "te" && "ఇంటర్ఫేస్ భాష: తెలుగు (త్వరలో అందుబాటులోకి వస్తుంది)."}
+            {language === "hi" && "इंटरफ़ेस भाषा: हिन्दी (जल्द ही उपलब्ध होगा)."}
+          </p>
         </div>
       </div>
     </div>
