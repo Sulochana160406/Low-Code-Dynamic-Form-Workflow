@@ -123,58 +123,55 @@ h1, h2, h3 {
 }
 
 /* =========================================================
-   APP SHELL — sidebar (left) + main content (right)
+   APP SHELL — top bar + full-width content, nav lives in a
+   slide-out drawer, not a permanent left panel
    ========================================================= */
 
 .app-shell {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
 .main-content {
   flex: 1;
   min-width: 0;
-  margin-left: var(--sidebar-width);
 }
 
 /* =========================================================
-   SIDEBAR
+   TOP BAR — replaces the old permanent sidebar. Nav links live
+   behind the hamburger drawer below, not shown by default.
    ========================================================= */
 
-.sidebar {
-  position: fixed;
+.topbar {
+  position: sticky;
   top: 0;
-  left: 0;
-  bottom: 0;
-  width: var(--sidebar-width);
-  background: var(--color-sidebar);
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-sm);
   z-index: 20;
-}
-
-.sidebar-brand {
+  height: 64px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 22px 16px 22px 20px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 0 20px;
 }
 
-.sidebar-brand-left {
+.topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  gap: 14px;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 
 .sidebar-logo {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   border-radius: var(--radius-sm);
   background: var(--color-primary);
   color: #fff;
@@ -183,41 +180,35 @@ h1, h2, h3 {
   justify-content: center;
   font-weight: 700;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
-.sidebar-brand-text {
+.topbar-brand-text {
   color: var(--color-text);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* ---- Nav menu: collapsed behind a hamburger trigger ---- */
-
-.nav-menu {
-  position: relative;
-}
+/* ---- Hamburger trigger + slide-out nav drawer ---- */
 
 .nav-menu-trigger {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
+  box-shadow: none;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
@@ -226,20 +217,58 @@ h1, h2, h3 {
   background: var(--color-primary-soft);
   color: var(--color-primary);
   border-color: var(--color-primary);
+  transform: none;
 }
 
-.nav-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 224px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: 8px;
-  z-index: 30;
+.nav-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 23, 0.4);
+  z-index: 40;
 }
+
+.nav-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  animation: drawer-slide-in 0.18s ease;
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.nav-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 18px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 14px;
+}
+
+.nav-drawer-close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  box-shadow: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.nav-drawer-close:hover { color: var(--color-text); transform: none; box-shadow: none; }
 
 .sidebar-nav {
   display: flex;
@@ -250,12 +279,12 @@ h1, h2, h3 {
 .sidebar-nav a {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   color: var(--color-text-muted);
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
-  padding: 10px 12px;
+  font-size: 14.5px;
+  padding: 11px 12px;
   border-radius: var(--radius-sm);
   border-left: 3px solid transparent;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -278,38 +307,13 @@ h1, h2, h3 {
   border-left-color: var(--color-primary);
 }
 
-.sidebar-middle {
-  flex: 1;
-}
-
-.sidebar-footer {
-  padding: 14px 12px 18px;
+.nav-drawer-divider {
+  border: none;
   border-top: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  margin: 12px 4px;
 }
 
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 9px 14px;
-  font-weight: 600;
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.theme-toggle:hover {
-  background: var(--color-primary-soft);
-  border-color: var(--color-primary);
-}
+/* ---- Profile menu (top bar, right side) ---- */
 
 .profile-menu {
   position: relative;
@@ -318,24 +322,20 @@ h1, h2, h3 {
 .profile-trigger {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
   background: transparent;
   border: none;
-  padding: 8px;
-  border-radius: var(--radius-sm);
+  padding: 4px;
+  border-radius: 999px;
   cursor: pointer;
-  text-align: left;
-  transition: background 0.2s;
+  box-shadow: none;
 }
 
-.profile-trigger:hover {
-  background: var(--color-bg);
-}
+.profile-trigger:hover { background: var(--color-bg); transform: none; box-shadow: none; }
 
 .profile-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--color-primary);
   color: #fff;
@@ -347,34 +347,11 @@ h1, h2, h3 {
   flex-shrink: 0;
 }
 
-.profile-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.profile-name {
-  color: var(--color-text);
-  font-weight: 600;
-  font-size: 13.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.profile-email {
-  color: var(--color-text-muted);
-  font-size: 11.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .profile-dropdown {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+  top: calc(100% + 8px);
   right: 0;
+  width: 220px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -383,6 +360,7 @@ h1, h2, h3 {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  z-index: 30;
 }
 
 .profile-dropdown-name {
@@ -403,9 +381,12 @@ h1, h2, h3 {
   margin: 4px 0;
 }
 
+.profile-dropdown a,
 .profile-dropdown button {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+  display: block;
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
   border: none;
   border-radius: var(--radius-sm);
   padding: 8px 10px;
@@ -413,10 +394,27 @@ h1, h2, h3 {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
+  box-shadow: none;
 }
 
+.profile-dropdown a:hover,
 .profile-dropdown button:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  transform: none;
+}
+
+.profile-dropdown button.logout {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  margin-top: 2px;
+}
+
+.profile-dropdown button.logout:hover {
   filter: brightness(0.95);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 /* =========================================================
@@ -681,17 +679,63 @@ textarea { resize: vertical; min-height: 90px; }
   margin-top: 5px;
 }
 
-.checkbox-row {
-  display: flex;
+/* ---- Toggle switch (replaces plain checkboxes app-wide) ---- */
+
+.toggle-switch {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--color-text);
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.checkbox-row input[type="checkbox"] {
-  width: auto;
-  accent-color: var(--color-accent);
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch-track {
+  width: 40px;
+  height: 23px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: var(--color-border);
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(28, 25, 23, 0.25);
+  transition: transform 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-switch-track {
+  background: var(--color-primary);
+}
+
+.toggle-switch input:checked + .toggle-switch-track::after {
+  transform: translateX(17px);
+}
+
+.toggle-switch input:focus-visible + .toggle-switch-track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.toggle-switch-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 /* =========================================================
@@ -1133,28 +1177,10 @@ button:disabled, .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: n
    ========================================================= */
 
 @media (max-width: 900px) {
-  :root { --sidebar-width: 100%; }
-
-  .sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    padding: 0;
-  }
-
-  .sidebar-brand { padding: 12px 16px; border-bottom: none; }
-  .sidebar-nav { flex-direction: row; flex-wrap: wrap; padding: 6px 10px 12px; }
-  .sidebar-nav a { padding: 8px 12px; font-size: 13.5px; }
-  .sidebar-footer { flex-direction: row; align-items: center; justify-content: space-between; border-top: none; padding: 8px 16px 14px; }
-  .theme-toggle { width: auto; }
-  .profile-menu { width: auto; }
-  .profile-info { display: none; }
-  .profile-dropdown { left: auto; right: 0; width: 220px; }
-
-  .main-content { margin-left: 0; }
+  .topbar { padding: 0 14px; }
+  .topbar-brand-text { display: none; }
+  .nav-drawer { width: 86vw; max-width: 300px; }
+  .profile-dropdown { width: 200px; }
 
   .dashboard, .page-header { padding: 20px; }
   .dashboard h1, .page-header h1 { font-size: 26px; }

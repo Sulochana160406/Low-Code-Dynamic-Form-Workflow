@@ -13,6 +13,7 @@ import ThankYou from "./pages/ThankYou";
 import Responses from "./pages/Responses";
 import FormAnalytics from "./pages/FormAnalytics";
 import AuditLog from "./pages/AuditLog";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
         <Route path="/forms/:id/analytics" element={<FormAnalytics />} />
         <Route path="/responses" element={<Responses />} />
         <Route path="/audit-log" element={<AuditLog />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   );

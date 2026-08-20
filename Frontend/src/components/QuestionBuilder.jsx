@@ -181,14 +181,16 @@ function QuestionBuilder({ questions, setQuestions }) {
               />
             </div>
           </div>
-          <div className="form-group checkbox-row">
-            <input
-              type="checkbox"
-              id="allow-decimal"
-              checked={allowDecimal}
-              onChange={(e) => setAllowDecimal(e.target.checked)}
-            />
-            <label htmlFor="allow-decimal">Allow decimal values</label>
+          <div className="form-group">
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={allowDecimal}
+                onChange={(e) => setAllowDecimal(e.target.checked)}
+              />
+              <span className="toggle-switch-track"></span>
+              <span className="toggle-switch-label">Allow decimal values</span>
+            </label>
           </div>
         </>
       )}
@@ -253,14 +255,16 @@ function QuestionBuilder({ questions, setQuestions }) {
         </div>
       )}
 
-      <div className="form-group checkbox-row">
-        <input
-          type="checkbox"
-          id="required-field"
-          checked={required}
-          onChange={(e) => setRequired(e.target.checked)}
-        />
-        <label htmlFor="required-field">Required field</label>
+      <div className="form-group">
+        <label className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={required}
+            onChange={(e) => setRequired(e.target.checked)}
+          />
+          <span className="toggle-switch-track"></span>
+          <span className="toggle-switch-label">Required field</span>
+        </label>
       </div>
 
       <button type="button" onClick={handleAddQuestion}>

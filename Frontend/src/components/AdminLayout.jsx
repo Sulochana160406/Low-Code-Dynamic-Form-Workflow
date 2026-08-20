@@ -23,28 +23,25 @@ function AdminLayout() {
   const location = useLocation();
   const user = getStoredUser();
 
-  const [theme, setTheme] = useState(getInitialTheme);
-  const [navMenuOpen, setNavMenuOpen] = useState(false);
+  // The theme can also be changed from the Settings page — this just
+  // makes sure the <html data-theme> attribute is applied on first load
+  // and stays correct if it was set in a previous session.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", getInitialTheme());
+  }, []);
+
+  const [navOpen, setNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const navMenuRef = useRef(null);
   const profileRef = useRef(null);
 
+  // Close the drawer/profile menu on every navigation.
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
-
-  // Close the nav menu on every navigation, so it never stays open
-  // pointing at a page you already left.
-  useEffect(() => {
-    setNavMenuOpen(false);
+    setNavOpen(false);
+    setProfileOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (navMenuRef.current && !navMenuRef.current.contains(e.target)) {
-        setNavMenuOpen(false);
-      }
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setProfileOpen(false);
       }
@@ -52,8 +49,6 @@ function AdminLayout() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
   const handleLogout = () => {
     logout();
@@ -70,80 +65,91 @@ function AdminLayout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-brand-left">
-            <span className="sidebar-logo">FC</span>
-            <span className="sidebar-brand-text">FormCraft</span>
-          </div>
-
-          <div className="nav-menu" ref={navMenuRef}>
-            <button
-              type="button"
-              className={`nav-menu-trigger${navMenuOpen ? " active" : ""}`}
-              onClick={() => setNavMenuOpen((v) => !v)}
-              aria-label="Open navigation menu"
-              aria-expanded={navMenuOpen}
-            >
-              ☰
-            </button>
-
-            {navMenuOpen && (
-              <div className="nav-menu-dropdown">
-                <nav className="sidebar-nav">
-                  {NAV_ITEMS.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      className={({ isActive }) => (isActive ? "active" : undefined)}
-                    >
-                      <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </NavLink>
-                  ))}
-                </nav>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="sidebar-middle" />
-
-        <div className="sidebar-footer">
+      <header className="topbar">
+        <div className="topbar-left">
           <button
             type="button"
-            className="theme-toggle"
-            onClick={toggleTheme}
-            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            className={`nav-menu-trigger${navOpen ? " active" : ""}`}
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={navOpen}
           >
-            <span aria-hidden="true">{theme === "light" ? "\u263D" : "\u2600"}</span>
-            <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+            ☰
           </button>
 
-          <div className="profile-menu" ref={profileRef}>
-            {profileOpen && (
-              <div className="profile-dropdown">
-                <div className="profile-dropdown-name">{user?.name || "Admin"}</div>
-                <div className="profile-dropdown-email">{user?.email}</div>
-                <hr />
-                <button type="button" onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-            <button
-              type="button"
-              className="profile-trigger"
-              onClick={() => setProfileOpen((v) => !v)}
-            >
-              <span className="profile-avatar">{initials}</span>
-              <span className="profile-info">
-                <span className="profile-name">{user?.name || "Admin"}</span>
-                <span className="profile-email">{user?.email}</span>
-              </span>
-            </button>
+          <div className="topbar-brand">
+            <span className="sidebar-logo">FC</span>
+            <span className="topbar-brand-text">FormCraft</span>
           </div>
         </div>
-      </aside>
+
+        <div className="profile-menu" ref={profileRef}>
+          <button
+            type="button"
+            className="profile-trigger"
+            onClick={() => setProfileOpen((v) => !v)}
+            aria-label="Open profile menu"
+          >
+            <span className="profile-avatar">{initials}</span>
+          </button>
+
+          {profileOpen && (
+            <div className="profile-dropdown">
+              <div className="profile-dropdown-name">{user?.name || "Admin"}</div>
+              <div className="profile-dropdown-email">{user?.email}</div>
+              <hr />
+              <NavLink to="/settings">⚙ Settings</NavLink>
+              <button type="button" className="logout" onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {navOpen && (
+        <>
+          <div className="nav-drawer-backdrop" onClick={() => setNavOpen(false)} />
+          <div className="nav-drawer">
+            <div className="nav-drawer-header">
+              <div className="topbar-brand">
+                <span className="sidebar-logo">FC</span>
+                <span className="topbar-brand-text">FormCraft</span>
+              </div>
+              <button
+                type="button"
+                className="nav-drawer-close"
+                onClick={() => setNavOpen(false)}
+                aria-label="Close navigation menu"
+              >
+                ✕
+              </button>
+            </div>
+
+            <nav className="sidebar-nav">
+              {NAV_ITEMS.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => (isActive ? "active" : undefined)}
+                >
+                  <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+
+              <hr className="nav-drawer-divider" />
+
+              <NavLink
+                to="/settings"
+                className={({ isActive }) => (isActive ? "active" : undefined)}
+              >
+                <span className="sidebar-icon" aria-hidden="true">⚙</span>
+                <span>Settings</span>
+              </NavLink>
+            </nav>
+          </div>
+        </>
+      )}
 
       <main className="main-content">
         <Outlet />

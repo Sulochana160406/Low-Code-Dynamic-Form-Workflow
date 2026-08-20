@@ -69,6 +69,8 @@ function FormAnalytics() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
+  const [fieldFilterId, setFieldFilterId] = useState("");
+  const [fieldFilterValue, setFieldFilterValue] = useState("");
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [detail, setDetail] = useState(null);
@@ -84,7 +86,7 @@ function FormAnalytics() {
 
   useEffect(() => {
     loadResponses(1);
-  }, [id, statusFilter, dateFrom, dateTo]);
+  }, [id, statusFilter, dateFrom, dateTo, fieldFilterId, fieldFilterValue]);
 
   const loadOverview = async () => {
     setLoading(true);
@@ -121,6 +123,8 @@ function FormAnalytics() {
         submitted_from: dateFrom,
         submitted_to: dateTo,
         search,
+        field_id: fieldFilterId,
+        field_value: fieldFilterValue,
         page: targetPage,
         page_size: PAGE_SIZE,
       });
@@ -356,13 +360,14 @@ function FormAnalytics() {
               style={{ width: "140px" }}
             />
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+          <label className="toggle-switch" style={{ marginBottom: "10px" }}>
             <input
               type="checkbox"
               checked={retentionEnabled}
               onChange={(e) => setRetentionEnabled(e.target.checked)}
             />
-            Enabled
+            <span className="toggle-switch-track"></span>
+            <span className="toggle-switch-label">Enabled</span>
           </label>
           <button className="btn btn-outline btn-sm" onClick={handleSaveRetention} disabled={savingRetention}>
             {savingRetention ? "Saving…" : "Save Policy"}
@@ -394,6 +399,26 @@ function FormAnalytics() {
           </select>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          <select
+            className="select"
+            value={fieldFilterId}
+            onChange={(e) => { setFieldFilterId(e.target.value); setFieldFilterValue(""); }}
+            style={{ width: "170px" }}
+          >
+            <option value="">Filter by field…</option>
+            {form.fields.map((f) => (
+              <option key={f.id} value={f.id}>{f.field_label}</option>
+            ))}
+          </select>
+          {fieldFilterId && (
+            <input
+              type="text"
+              placeholder="Value (e.g. IT)"
+              value={fieldFilterValue}
+              onChange={(e) => setFieldFilterValue(e.target.value)}
+              style={{ width: "140px" }}
+            />
+          )}
           <button type="submit" className="btn btn-outline btn-sm">Apply</button>
         </form>
 
