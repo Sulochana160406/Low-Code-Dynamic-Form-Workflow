@@ -29,6 +29,7 @@ from models import (
     UploadedFile,
     AuditLog,
     RetentionPolicy,
+    OneTimeLink,
 )
 from schemas import (
     UserRegister,
@@ -45,6 +46,7 @@ from schemas import (
     SubmitFormCreate,
     BulkDeleteRequest,
     RetentionPolicyUpdate,
+    SendLinkRequest,
 )
 from auth import (
     hash_password,
@@ -82,6 +84,11 @@ with engine.connect() as _conn:
         _conn.execute(_text("ALTER TABLE submissions ALTER COLUMN submitted_by DROP NOT NULL"))
         _conn.commit()
 
+    _form_columns = [c["name"] for c in _inspect(engine).get_columns("forms")]
+    if "expires_at" not in _form_columns:
+        _conn.execute(_text("ALTER TABLE forms ADD COLUMN expires_at TIMESTAMP"))
+        _conn.commit()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -98,6 +105,39 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Confirmation Mail (Milestone 3 extra feature). Set these as real env
+# vars on Render to enable it (e.g. an SMTP_USER Gmail address with an
+# App Password as SMTP_PASSWORD). If they're not set, email sending is
+# silently skipped — a missing/broken SMTP config must never block a
+# respondent's submission from succeeding.
+SMTP_HOST = os.environ.get("SMTP_HOST")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "FormCraft")
+
+
+def send_email(to_email: str, subject: str, body: str) -> bool:
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and to_email):
+        return False
+
+    import smtplib
+    from email.mime.text import MIMEText
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_USER}>"
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, [to_email], msg.as_string())
+        return True
+    except Exception:
+        return False
 
 # Files are NOT served via a plain static mount on purpose — every
 # download must go through /download/{stored_name} with a valid,
@@ -251,6 +291,7 @@ def get_form(form_id: int, db: Session = Depends(get_db), current_user: User = D
         "title": form.title,
         "description": form.description,
         "status": form.status,
+        "expires_at": form.expires_at,
         "fields": field_list,
         "conditional_rules": [
             {
@@ -624,6 +665,9 @@ def get_public_form(form_id: int, db: Session = Depends(get_db)):
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    if form.expires_at and datetime.utcnow() > form.expires_at:
+        raise HTTPException(status_code=410, detail="This form is no longer accepting responses.")
+
     fields = db.query(Field).filter(Field.form_id == form_id, Field.version_id.is_(None)).order_by(Field.order.asc()).all()
 
     field_list = []
@@ -649,6 +693,9 @@ def get_public_form_by_uuid(form_uuid: str, db: Session = Depends(get_db)):
     form = db.query(Form).filter(Form.id == version.form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
+
+    if form.expires_at and datetime.utcnow() > form.expires_at:
+        raise HTTPException(status_code=410, detail="This form is no longer accepting responses.")
 
     fields = db.query(Field).filter(Field.version_id == version.id).order_by(Field.order.asc()).all()
 
@@ -692,6 +739,87 @@ def get_share_link(form_id: int, db: Session = Depends(get_db), current_user: Us
     if not version:
         raise HTTPException(status_code=404, detail="Publish the form first.")
     return {"share_link": f"{FRONTEND_URL}/form/{version.uuid}"}
+
+
+@app.post("/forms/{form_id}/send-link")
+def send_form_link_by_email(form_id: int, payload: SendLinkRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
+        raise HTTPException(
+            status_code=400,
+            detail="Email isn't configured on the server yet (SMTP_HOST/SMTP_USER/SMTP_PASSWORD).",
+        )
+
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Publish the form first.")
+
+    link = f"{FRONTEND_URL}/form/{version.uuid}"
+    subject = f"Please fill out: {form.title}"
+    body = (
+        f"Hi,\n\n"
+        f"You've been invited to fill out \"{form.title}\".\n\n"
+        f"{(form.description or '').strip()}\n\n"
+        f"Click here to open it:\n{link}\n\n"
+        f"— {SMTP_FROM_NAME}"
+    )
+
+    sent, failed = [], []
+    for raw_email in payload.emails:
+        recipient = raw_email.strip()
+        if not recipient:
+            continue
+        if send_email(recipient, subject, body):
+            sent.append(recipient)
+        else:
+            failed.append(recipient)
+
+    if not sent and not failed:
+        raise HTTPException(status_code=422, detail="No email addresses were provided.")
+
+    return {"message": f"Sent to {len(sent)} of {len(sent) + len(failed)} address(es).", "sent": sent, "failed": failed}
+
+
+@app.post("/forms/{form_id}/one-time-links")
+def create_one_time_link(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Publish the form first.")
+
+    link = OneTimeLink(form_id=form_id)
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+
+    return {
+        "token": link.token,
+        "link": f"{FRONTEND_URL}/form/{version.uuid}?ott={link.token}",
+        "used": link.used,
+    }
+
+
+@app.get("/forms/{form_id}/one-time-links")
+def list_one_time_links(form_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
+    links = db.query(OneTimeLink).filter(OneTimeLink.form_id == form_id).order_by(OneTimeLink.id.desc()).all()
+
+    return [
+        {
+            "token": l.token,
+            "link": f"{FRONTEND_URL}/form/{version.uuid}?ott={l.token}" if version else None,
+            "used": l.used,
+            "used_at": l.used_at,
+            "created_at": l.created_at,
+        }
+        for l in links
+    ]
 
 
 # =========================================================
@@ -904,10 +1032,17 @@ def submit_form(form_id: int, submission_data: SubmitFormCreate, db: Session = D
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    if form.expires_at and datetime.utcnow() > form.expires_at:
+        raise HTTPException(status_code=410, detail="This form is no longer accepting responses.")
+
+    ott = _validate_one_time_token(submission_data.one_time_token, form_id, db)
+
     fields = db.query(Field).filter(Field.form_id == form_id, Field.version_id.is_(None)).all()
     rules = db.query(ConditionalRule).filter(ConditionalRule.form_id == form_id, ConditionalRule.version_id.is_(None)).all()
 
-    return _process_submission(form_id, fields, rules, version_number=0, submission_data=submission_data, db=db)
+    result = _process_submission(form_id, form.title, fields, rules, version_number=0, submission_data=submission_data, db=db)
+    _mark_one_time_token_used(ott, db)
+    return result
 
 
 @app.post("/public/form/{form_uuid}/submit")
@@ -920,18 +1055,72 @@ def submit_form_by_uuid(form_uuid: str, submission_data: SubmitFormCreate, db: S
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
+    if form.expires_at and datetime.utcnow() > form.expires_at:
+        raise HTTPException(status_code=410, detail="This form is no longer accepting responses.")
+
+    ott = _validate_one_time_token(submission_data.one_time_token, form.id, db)
+
     fields = db.query(Field).filter(Field.version_id == version.id).all()
     rules = db.query(ConditionalRule).filter(ConditionalRule.version_id == version.id).all()
 
-    return _process_submission(form.id, fields, rules, version_number=version.version_number, submission_data=submission_data, db=db)
+    result = _process_submission(form.id, form.title, fields, rules, version_number=version.version_number, submission_data=submission_data, db=db)
+    _mark_one_time_token_used(ott, db)
+    return result
 
 
-def _process_submission(form_id, fields, rules, version_number, submission_data, db):
+def _validate_one_time_token(token, form_id, db):
+    """If a one-time token was passed, make sure it's real, belongs to
+    this form, and hasn't been used yet — reject the submission outright
+    if not. Returns the token row (not yet marked used) on success."""
+    if not token:
+        return None
+
+    ott = db.query(OneTimeLink).filter(OneTimeLink.token == token, OneTimeLink.form_id == form_id).first()
+    if not ott:
+        raise HTTPException(status_code=404, detail="This link is invalid.")
+    if ott.used:
+        raise HTTPException(status_code=410, detail="This one-time link has already been used.")
+    return ott
+
+
+def _mark_one_time_token_used(ott, db):
+    if not ott:
+        return
+    ott.used = True
+    ott.used_at = datetime.utcnow()
+    db.commit()
+
+
+def _process_submission(form_id, form_title, fields, rules, version_number, submission_data, db):
 
     fields_by_id = {f.id: f for f in fields}
     submitted = {r.field_id: r.value for r in submission_data.responses}
 
     all_errors = []
+
+    # "Once we fill the form, the same email shouldn't be able to fill it
+    # again" — if this form collects an email address, block a second
+    # Completed submission from that same address.
+    email_field_id = next((fid for fid, f in fields_by_id.items() if f.field_type == "email"), None)
+    if email_field_id is not None:
+        submitted_email = submitted.get(email_field_id, "").strip().lower()
+        if submitted_email:
+            already_submitted = (
+                db.query(Submission)
+                .join(ResponseValue, ResponseValue.submission_id == Submission.id)
+                .filter(
+                    Submission.form_id == form_id,
+                    Submission.status == "Completed",
+                    ResponseValue.field_id == email_field_id,
+                    ResponseValue.value.ilike(submitted_email),
+                )
+                .first()
+            )
+            if already_submitted:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"message": f"A response has already been submitted with {submitted_email}.", "errors": []},
+                )
 
     visibility_controlled_ids = {
         rule.target_field_id for rule in rules if rule.action in ("show", "hide")

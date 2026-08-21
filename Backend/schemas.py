@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 
 # ---------------- AUTH ----------------
@@ -33,6 +33,7 @@ class FormUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
 
 # ---------------- FORM VERSION ----------------
@@ -171,6 +172,9 @@ class SubmitFormCreate(BaseModel):
     # Completed (with an accurate started_at → submitted_at duration)
     # instead of a brand-new row being created with no start time.
     submission_id: Optional[int] = None
+    # Present only when the respondent came in through a one-time link
+    # (?ott=...). Checked and marked used at submit time.
+    one_time_token: Optional[str] = None
 
 
 # ---------------- MILESTONE 3: BULK DELETE / RETENTION ----------------
@@ -183,3 +187,11 @@ class BulkDeleteRequest(BaseModel):
 class RetentionPolicyUpdate(BaseModel):
     retention_days: int
     is_enabled: bool
+
+
+class SendLinkRequest(BaseModel):
+    emails: List[str]
+
+
+class SendLinkRequest(BaseModel):
+    email: str

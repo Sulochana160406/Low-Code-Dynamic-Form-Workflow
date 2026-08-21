@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getPublicForm, getPublicFormByUuid, submitPublicForm, submitPublicFormByUuid, uploadFile, startPublicForm, startPublicFormByUuid } from "../services/api";
 
 function evaluateCondition(operator, triggerValue, comparisonValue) {
@@ -21,16 +21,23 @@ function evaluateCondition(operator, triggerValue, comparisonValue) {
 function PublicForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const oneTimeToken = searchParams.get("ott") || null;
 
   const [form, setForm] = useState(null);
   const [responses, setResponses] = useState({});
   const [notFound, setNotFound] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const [expiredMessage, setExpiredMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState([]);
   const [uploadingFieldId, setUploadingFieldId] = useState(null);
   const [uploadedFileNames, setUploadedFileNames] = useState({});
   const [submitterName, setSubmitterName] = useState("");
   const [sessionSubmissionId, setSessionSubmissionId] = useState(null);
+
+  // "fill" = answering questions, "preview" = reviewing before the real submit
+  const [step, setStep] = useState("fill");
 
   useEffect(() => {
     loadForm();
@@ -41,22 +48,24 @@ function PublicForm() {
 
   const loadForm = async () => {
     setNotFound(false);
+    setExpired(false);
     setForm(null);
     try {
       const data = isUuid(id) ? await getPublicFormByUuid(id) : await getPublicForm(id);
       setForm(data);
 
-      // Fire-and-forget: records that someone opened the form, so the
-      // dashboard's completion rate (started vs. submitted) is accurate.
-      // A failure here should never block the respondent from filling
-      // out the form, so it's deliberately not awaited or error-handled.
       const startResult = isUuid(id) ? await startPublicFormByUuid(id) : await startPublicForm(data.id);
       if (startResult?.submission_id) {
         setSessionSubmissionId(startResult.submission_id);
       }
     } catch (error) {
       console.log(error);
-      setNotFound(true);
+      if (error.expired) {
+        setExpired(true);
+        setExpiredMessage(error.message);
+      } else {
+        setNotFound(true);
+      }
     }
   };
 
@@ -64,9 +73,6 @@ function PublicForm() {
     setResponses((prev) => ({ ...prev, [fieldId]: value }));
   };
 
-  // Work out, for every field, whether a conditional rule hides/shows/
-  // requires it right now — mirrors the backend evaluator so the UX
-  // matches what will actually be accepted on submit.
   const getFieldState = (fieldId) => {
     let visible = true;
     let forcedRequired = false;
@@ -96,9 +102,6 @@ function PublicForm() {
     setUploadingFieldId(field.id);
     try {
       const result = await uploadFile(form.id, field.id, file);
-      // Submit the stable filename reference, not the signed URL itself —
-      // signed URLs expire after an hour, so we generate a fresh one
-      // on demand whenever someone actually views it later (Responses page).
       handleChange(field.id, result.stored_name);
       setUploadedFileNames((prev) => ({ ...prev, [field.id]: result.original_name }));
     } catch (error) {
@@ -109,23 +112,27 @@ function PublicForm() {
     }
   };
 
-  const handleSubmit = async () => {
+  const visibleFields = form ? form.fields.filter((f) => getFieldState(f.id).visible) : [];
+
+  const handleReview = () => {
     if (!submitterName.trim()) {
       setErrors(["Please enter your name before submitting."]);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    setErrors([]);
+    setStep("preview");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
+  const handleConfirmSubmit = async () => {
     setErrors([]);
     setSubmitting(true);
     try {
-      // Only send values for fields that are currently visible —
-      // hidden fields must not be submitted at all.
-      const visibleFields = form.fields.filter((f) => getFieldState(f.id).visible);
-
       const payload = {
         submitted_by: submitterName.trim(),
         submission_id: sessionSubmissionId,
+        one_time_token: oneTimeToken,
         responses: visibleFields.map((field) => ({
           field_id: field.id,
           value: Array.isArray(responses[field.id])
@@ -144,10 +151,18 @@ function PublicForm() {
     } catch (error) {
       console.log(error);
       setErrors(error.errors && error.errors.length > 0 ? error.errors : [error.message || "Submission failed"]);
+      setStep("fill");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const displayValue = (field) => {
+    const value = responses[field.id];
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
+    if (field.field_type === "file") return value ? (uploadedFileNames[field.id] || "Uploaded") : "—";
+    return value ? value.toString() : "—";
   };
 
   if (notFound) {
@@ -161,11 +176,71 @@ function PublicForm() {
     );
   }
 
+  if (expired) {
+    return (
+      <div className="public-form-page">
+        <div className="public-form-card" style={{ textAlign: "center" }}>
+          <h2>⏰ This form is closed</h2>
+          <p>{expiredMessage || "This form is no longer accepting responses."}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!form) {
     return (
       <div className="public-form-page">
         <div className="public-form-card" style={{ textAlign: "center" }}>
           <p>Loading form…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "preview") {
+    return (
+      <div className="public-form-page">
+        <div className="public-form-card">
+          <h2>Review your answers</h2>
+          <p>Check everything looks right before you submit.</p>
+
+          {errors.length > 0 && (
+            <div className="validation-errors">
+              <strong>Please fix the following before submitting:</strong>
+              <ul>{errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
+            </div>
+          )}
+
+          <div className="preview-row">
+            <span className="preview-label">Your Name</span>
+            <span className="preview-value">{submitterName}</span>
+          </div>
+
+          {visibleFields.map((field) => (
+            <div className="preview-row" key={field.id}>
+              <span className="preview-label">{field.field_label}</span>
+              <span className="preview-value">{displayValue(field)}</span>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
+            <button
+              className="btn btn-outline"
+              style={{ flex: 1 }}
+              onClick={() => setStep("fill")}
+              disabled={submitting}
+            >
+              ← Edit Answers
+            </button>
+            <button
+              className="submit-btn"
+              style={{ flex: 1 }}
+              onClick={handleConfirmSubmit}
+              disabled={submitting}
+            >
+              {submitting ? "Submitting…" : "Confirm & Submit"}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -343,8 +418,8 @@ function PublicForm() {
           );
         })}
 
-        <button className="submit-btn" onClick={handleSubmit} disabled={submitting} style={{ width: "100%" }}>
-          {submitting ? "Submitting..." : "Submit"}
+        <button className="submit-btn" onClick={handleReview} style={{ width: "100%" }}>
+          Review Answers →
         </button>
       </div>
     </div>

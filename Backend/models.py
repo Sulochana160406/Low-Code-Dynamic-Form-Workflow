@@ -28,6 +28,10 @@ class Form(Base):
     description = Column(String(500))
     status = Column(String(50), default="Draft")
 
+    # Form Auto-Expiry: once past this time, the public form stops
+    # accepting new responses. NULL = never expires.
+    expires_at = Column(DateTime, nullable=True)
+
 
 # ---------------- FORM VERSIONS ----------------
 
@@ -190,3 +194,16 @@ class RetentionPolicy(Base):
     is_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------- ONE-TIME SUBMISSION LINKS ----------------
+
+class OneTimeLink(Base):
+    __tablename__ = "one_time_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(Integer, nullable=False)
+    token = Column(String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex)
+    used = Column(Boolean, default=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

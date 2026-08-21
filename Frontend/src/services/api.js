@@ -213,13 +213,23 @@ export async function deleteConditionalRule(ruleId) {
 
 export async function getPublicForm(formId) {
   const response = await fetch(`${BASE_URL}/public/forms/${formId}`);
-  if (!response.ok) throw new Error("Form not found");
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const err = new Error(data.detail || "Form not found");
+    err.expired = response.status === 410;
+    throw err;
+  }
   return response.json();
 }
 
 export async function getPublicFormByUuid(formUuid) {
   const response = await fetch(`${BASE_URL}/public/form/${formUuid}`);
-  if (!response.ok) throw new Error("Form not found");
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const err = new Error(data.detail || "Form not found");
+    err.expired = response.status === 410;
+    throw err;
+  }
   return response.json();
 }
 
@@ -253,7 +263,8 @@ export async function submitPublicForm(formId, data) {
 
   const result = await response.json();
   if (!response.ok) {
-    const err = new Error(result.detail?.message || "Submission failed");
+    const message = typeof result.detail === "string" ? result.detail : result.detail?.message;
+    const err = new Error(message || "Submission failed");
     err.errors = result.detail?.errors || [];
     throw err;
   }
@@ -271,7 +282,8 @@ export async function submitPublicFormByUuid(formUuid, data) {
 
   const result = await response.json();
   if (!response.ok) {
-    const err = new Error(result.detail?.message || "Submission failed");
+    const message = typeof result.detail === "string" ? result.detail : result.detail?.message;
+    const err = new Error(message || "Submission failed");
     err.errors = result.detail?.errors || [];
     throw err;
   }
@@ -429,4 +441,32 @@ export async function getAuditLogs(page = 1, pageSize = 20) {
   const response = await authedFetch(`/audit-logs?page=${page}&page_size=${pageSize}`);
   if (!response.ok) throw new Error("Unable to load audit logs");
   return response.json();
+}
+
+// ---------------- ONE-TIME SUBMISSION LINKS ----------------
+
+export async function createOneTimeLink(formId) {
+  const response = await authedFetch(`/forms/${formId}/one-time-links`, { method: "POST" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Unable to create link");
+  return data;
+}
+
+export async function getOneTimeLinks(formId) {
+  const response = await authedFetch(`/forms/${formId}/one-time-links`);
+  if (!response.ok) throw new Error("Unable to load links");
+  return response.json();
+}
+
+// ---------------- SEND FORM LINK BY EMAIL ----------------
+
+export async function sendFormLinkByEmail(formId, email) {
+  const response = await authedFetch(`/forms/${formId}/send-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ emails: [email] }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Unable to send email");
+  return data;
 }

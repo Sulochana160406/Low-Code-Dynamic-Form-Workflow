@@ -7,7 +7,212 @@ import {
   getShareLink,
   deleteForm,
   duplicateForm,
+  updateForm,
+  sendFormLinkByEmail,
+  createOneTimeLink,
+  getOneTimeLinks,
 } from "../services/api";
+
+function ShareModal({ form, onClose }) {
+  const [shareLink, setShareLink] = useState(null);
+  const [loadingLink, setLoadingLink] = useState(true);
+  const [linkError, setLinkError] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const [oneTimeLinks, setOneTimeLinks] = useState([]);
+  const [creatingOtt, setCreatingOtt] = useState(false);
+
+  useEffect(() => {
+    loadShareLink();
+    loadOneTimeLinks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadShareLink = async () => {
+    setLoadingLink(true);
+    try {
+      const data = await getShareLink(form.id);
+      setShareLink(data.share_link);
+    } catch (error) {
+      setLinkError(
+        error.message === "Publish the form first."
+          ? "Publish this form first to get a shareable link."
+          : "Unable to load link."
+      );
+    } finally {
+      setLoadingLink(false);
+    }
+  };
+
+  const loadOneTimeLinks = async () => {
+    try {
+      const data = await getOneTimeLinks(form.id);
+      setOneTimeLinks(data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(shareLink);
+    alert("Link copied!");
+  };
+
+  const handleSendEmail = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSending(true);
+    try {
+      const result = await sendFormLinkByEmail(form.id, email.trim());
+      alert(result.message);
+      setEmail("");
+    } catch (error) {
+      alert(error.message || "Unable to send email");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCreateOtt = async () => {
+    setCreatingOtt(true);
+    try {
+      await createOneTimeLink(form.id);
+      loadOneTimeLinks();
+    } catch (error) {
+      alert(error.message || "Unable to create link");
+    } finally {
+      setCreatingOtt(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Share "{form.title}"</h2>
+          <button className="btn-icon" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {loadingLink ? (
+          <p>Loading link…</p>
+        ) : linkError ? (
+          <p className="form-hint">{linkError}</p>
+        ) : (
+          <>
+            <div className="share-link-row">
+              <input type="text" readOnly value={shareLink} />
+              <button className="btn btn-outline btn-sm" onClick={handleCopy}>Copy</button>
+            </div>
+
+            <div className="qr-code-box">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareLink)}`}
+                alt="QR code for form link"
+                width={180}
+                height={180}
+              />
+              <p className="form-hint">Scan to open the form</p>
+            </div>
+
+            <hr />
+
+            <div className="section-title" style={{ fontSize: "14px" }}>✉️ Email the link</div>
+            <form onSubmit={handleSendEmail} className="share-link-row">
+              <input
+                type="email"
+                placeholder="respondent@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <button type="submit" className="btn btn-outline btn-sm" disabled={sending}>
+                {sending ? "Sending…" : "Send"}
+              </button>
+            </form>
+            <p className="form-hint">Requires email (SMTP) to be configured on the server.</p>
+
+            <hr />
+
+            <div className="section-title" style={{ fontSize: "14px" }}>🔐 One-time links</div>
+            <p className="form-hint" style={{ marginBottom: "10px" }}>
+              Each link below can be used for exactly one submission.
+            </p>
+            <button className="btn btn-outline btn-sm" onClick={handleCreateOtt} disabled={creatingOtt}>
+              {creatingOtt ? "Creating…" : "+ Generate one-time link"}
+            </button>
+
+            {oneTimeLinks.length > 0 && (
+              <div style={{ marginTop: "12px", maxHeight: "160px", overflowY: "auto" }}>
+                {oneTimeLinks.map((l) => (
+                  <div key={l.token} className="ott-row">
+                    <span className="ott-link">{l.link}</span>
+                    <span className={`badge ${l.used ? "" : "badge-success"}`}>
+                      {l.used ? "Used" : "Unused"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExpiryModal({ form, onClose, onSaved }) {
+  const [expiresAt, setExpiresAt] = useState(
+    form.expires_at ? form.expires_at.slice(0, 16) : ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateForm(form.id, { expires_at: expiresAt ? new Date(expiresAt).toISOString() : null });
+      alert(expiresAt ? "Expiry set!" : "Expiry removed — form accepts responses indefinitely.");
+      onSaved();
+      onClose();
+    } catch (error) {
+      alert("Unable to save expiry");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Auto-Expiry — "{form.title}"</h2>
+          <button className="btn-icon" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <p className="form-hint" style={{ marginBottom: "12px" }}>
+          After this date/time, the form stops accepting new responses. Leave empty for no expiry.
+        </p>
+
+        <div className="form-group">
+          <label className="form-label">Expires at</label>
+          <input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+          <button className="btn btn-outline btn-sm" onClick={() => setExpiresAt("")}>Clear</button>
+          <button className="submit-btn" style={{ flex: 1 }} onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FormsList() {
   const [forms, setForms] = useState([]);
@@ -16,6 +221,9 @@ function FormsList() {
   const statusFilter = searchParams.get("status") || "All";
   const [sortOrder, setSortOrder] = useState("Latest");
   const [loading, setLoading] = useState(true);
+
+  const [shareModalForm, setShareModalForm] = useState(null);
+  const [expiryModalForm, setExpiryModalForm] = useState(null);
 
   const navigate = useNavigate();
 
@@ -80,21 +288,6 @@ function FormsList() {
   };
 
   const handleView = (id) => window.open(`/form/${id}`, "_blank");
-
-  const handleCopyLink = async (id) => {
-    try {
-      const data = await getShareLink(id);
-      await navigator.clipboard.writeText(data.share_link);
-      alert("Share Link Copied Successfully!\n" + data.share_link);
-    } catch (error) {
-      console.log(error);
-      alert(
-        error.message === "Publish the form first."
-          ? "Please publish this form first, then copy the link."
-          : "Unable to copy link"
-      );
-    }
-  };
 
   const statusBadge = (status) => {
     if (status === "Published") return <span className="badge badge-success">✅ Published</span>;
@@ -169,7 +362,12 @@ function FormsList() {
               filteredForms.map((form) => (
                 <tr key={form.id}>
                   <td>#{form.id}</td>
-                  <td>{form.title}</td>
+                  <td>
+                    {form.title}
+                    {form.expires_at && (
+                      <div className="form-hint">⏰ Expires {new Date(form.expires_at).toLocaleString()}</div>
+                    )}
+                  </td>
                   <td>{form.description}</td>
                   <td>{statusBadge(form.status)}</td>
                   <td>
@@ -202,8 +400,12 @@ function FormsList() {
                         View
                       </button>
 
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleCopyLink(form.id)}>
-                        Copy Link
+                      <button className="btn btn-outline btn-sm" onClick={() => setShareModalForm(form)}>
+                        🔗 Share
+                      </button>
+
+                      <button className="btn btn-ghost btn-sm" onClick={() => setExpiryModalForm(form)}>
+                        ⏰ Expiry
                       </button>
 
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(form.id)}>
@@ -217,6 +419,18 @@ function FormsList() {
           </tbody>
         </table>
       </div>
+
+      {shareModalForm && (
+        <ShareModal form={shareModalForm} onClose={() => setShareModalForm(null)} />
+      )}
+
+      {expiryModalForm && (
+        <ExpiryModal
+          form={expiryModalForm}
+          onClose={() => setExpiryModalForm(null)}
+          onSaved={loadForms}
+        />
+      )}
     </div>
   );
 }
