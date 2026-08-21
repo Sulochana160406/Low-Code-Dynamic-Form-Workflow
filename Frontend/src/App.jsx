@@ -12,6 +12,7 @@ import PublicForm from "./pages/PublicForm";
 import ThankYou from "./pages/ThankYou";
 import Responses from "./pages/Responses";
 import FormAnalytics from "./pages/FormAnalytics";
+import FormShare from "./pages/FormShare";
 import AuditLog from "./pages/AuditLog";
 import Settings from "./pages/Settings";
 
@@ -37,6 +38,7 @@ function App() {
         <Route path="/edit-form/:id" element={<CreateForm />} />
         <Route path="/forms-list" element={<FormsList />} />
         <Route path="/forms/:id/analytics" element={<FormAnalytics />} />
+        <Route path="/forms/:id/share" element={<FormShare />} />
         <Route path="/responses" element={<Responses />} />
         <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/settings" element={<Settings />} />

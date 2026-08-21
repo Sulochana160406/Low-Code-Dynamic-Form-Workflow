@@ -190,8 +190,4 @@ class RetentionPolicyUpdate(BaseModel):
 
 
 class SendLinkRequest(BaseModel):
-    emails: List[str]
-
-
-class SendLinkRequest(BaseModel):
     email: str

@@ -46,7 +46,6 @@ from schemas import (
     SubmitFormCreate,
     BulkDeleteRequest,
     RetentionPolicyUpdate,
-    SendLinkRequest,
 )
 from auth import (
     hash_password,
@@ -106,39 +105,6 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Confirmation Mail (Milestone 3 extra feature). Set these as real env
-# vars on Render to enable it (e.g. an SMTP_USER Gmail address with an
-# App Password as SMTP_PASSWORD). If they're not set, email sending is
-# silently skipped — a missing/broken SMTP config must never block a
-# respondent's submission from succeeding.
-SMTP_HOST = os.environ.get("SMTP_HOST")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
-SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "FormCraft")
-
-
-def send_email(to_email: str, subject: str, body: str) -> bool:
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD and to_email):
-        return False
-
-    import smtplib
-    from email.mime.text import MIMEText
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_USER}>"
-    msg["To"] = to_email
-
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, [to_email], msg.as_string())
-        return True
-    except Exception:
-        return False
-
 # Files are NOT served via a plain static mount on purpose — every
 # download must go through /download/{stored_name} with a valid,
 # time-limited signature (see generate_signed_url / verify_signed_url
@@ -176,16 +142,6 @@ def home():
 
 @app.post("/auth/register")
 def register(user_data: UserRegister, db: Session = Depends(get_db)):
-    # Registration is only open until the FIRST admin account is created.
-    # After that, this endpoint is locked — otherwise anyone who finds the
-    # link could create their own admin account and get full dashboard
-    # access, defeating the whole point of adding auth.
-    if db.query(User).count() > 0:
-        raise HTTPException(
-            status_code=403,
-            detail="Registration is closed. An admin account already exists — please log in instead.",
-        )
-
     existing = db.query(User).filter(User.email == user_data.email.lower().strip()).first()
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
@@ -739,48 +695,6 @@ def get_share_link(form_id: int, db: Session = Depends(get_db), current_user: Us
     if not version:
         raise HTTPException(status_code=404, detail="Publish the form first.")
     return {"share_link": f"{FRONTEND_URL}/form/{version.uuid}"}
-
-
-@app.post("/forms/{form_id}/send-link")
-def send_form_link_by_email(form_id: int, payload: SendLinkRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if not (SMTP_HOST and SMTP_USER and SMTP_PASSWORD):
-        raise HTTPException(
-            status_code=400,
-            detail="Email isn't configured on the server yet (SMTP_HOST/SMTP_USER/SMTP_PASSWORD).",
-        )
-
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail="Form not found")
-
-    version = db.query(FormVersion).filter(FormVersion.form_id == form_id).order_by(FormVersion.version_number.desc()).first()
-    if not version:
-        raise HTTPException(status_code=404, detail="Publish the form first.")
-
-    link = f"{FRONTEND_URL}/form/{version.uuid}"
-    subject = f"Please fill out: {form.title}"
-    body = (
-        f"Hi,\n\n"
-        f"You've been invited to fill out \"{form.title}\".\n\n"
-        f"{(form.description or '').strip()}\n\n"
-        f"Click here to open it:\n{link}\n\n"
-        f"— {SMTP_FROM_NAME}"
-    )
-
-    sent, failed = [], []
-    for raw_email in payload.emails:
-        recipient = raw_email.strip()
-        if not recipient:
-            continue
-        if send_email(recipient, subject, body):
-            sent.append(recipient)
-        else:
-            failed.append(recipient)
-
-    if not sent and not failed:
-        raise HTTPException(status_code=422, detail="No email addresses were provided.")
-
-    return {"message": f"Sent to {len(sent)} of {len(sent) + len(failed)} address(es).", "sent": sent, "failed": failed}
 
 
 @app.post("/forms/{form_id}/one-time-links")
