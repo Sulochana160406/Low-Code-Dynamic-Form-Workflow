@@ -88,6 +88,11 @@ with engine.connect() as _conn:
         _conn.execute(_text("ALTER TABLE forms ADD COLUMN expires_at TIMESTAMP"))
         _conn.commit()
 
+    _fields_columns = [c["name"] for c in _inspect(engine).get_columns("fields")]
+    if "voice_enabled" not in _fields_columns:
+        _conn.execute(_text("ALTER TABLE fields ADD COLUMN voice_enabled BOOLEAN DEFAULT FALSE"))
+        _conn.commit()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -233,6 +238,7 @@ def get_form(form_id: int, db: Session = Depends(get_db), current_user: User = D
             "allowed_file_types": field.allowed_file_types,
             "max_file_size": field.max_file_size,
             "rating_scale": field.rating_scale,
+            "voice_enabled": field.voice_enabled,
             "options": [o.option_value for o in options],
         })
 
@@ -373,6 +379,7 @@ def create_field(field: FieldCreate, db: Session = Depends(get_db), current_user
         allowed_file_types=field.allowed_file_types,
         max_file_size=field.max_file_size,
         rating_scale=field.rating_scale,
+        voice_enabled=field.voice_enabled,
     )
     db.add(new_field)
     db.commit()
@@ -678,6 +685,7 @@ def _field_to_public_dict(field, options):
         "min_date": field.min_date, "max_date": field.max_date,
         "allowed_file_types": field.allowed_file_types, "max_file_size": field.max_file_size,
         "rating_scale": field.rating_scale,
+        "voice_enabled": field.voice_enabled,
         "options": [o.option_value for o in options],
     }
 

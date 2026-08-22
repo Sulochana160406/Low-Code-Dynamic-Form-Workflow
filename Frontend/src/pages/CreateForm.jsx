@@ -52,6 +52,7 @@ function CreateForm() {
         type: field.field_type,
         required: field.required,
         options: field.options || [],
+        voice_enabled: field.voice_enabled || false,
       }));
       setQuestions(loadedQuestions);
 
@@ -231,6 +232,7 @@ function CreateForm() {
             allowed_file_types: question.allowed_file_types ?? null,
             max_file_size: question.max_file_size ?? null,
             rating_scale: question.rating_scale ?? null,
+            voice_enabled: question.voice_enabled ?? false,
           });
 
           question.id = savedField.data.id;
@@ -281,6 +283,7 @@ function CreateForm() {
           allowed_file_types: question.allowed_file_types ?? null,
           max_file_size: question.max_file_size ?? null,
           rating_scale: question.rating_scale ?? null,
+            voice_enabled: question.voice_enabled ?? false,
         });
 
         tempIdToRealId[question.tempId] = savedField.data.id;

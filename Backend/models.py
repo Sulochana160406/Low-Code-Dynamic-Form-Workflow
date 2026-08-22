@@ -85,6 +85,10 @@ class Field(Base):
     # Rating
     rating_scale = Column(Integer, nullable=True)
 
+    # Voice-based Form Filling: admin controls per-field whether the
+    # mic/voice-input button appears (only meaningful for text/email).
+    voice_enabled = Column(Boolean, default=False)
+
     # Versioning: NULL = this is the live/editable draft field.
     # A non-null value means this row is a frozen snapshot copy
     # that belongs to that published FormVersion.id, and must

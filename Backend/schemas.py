@@ -66,6 +66,7 @@ class FieldCreate(BaseModel):
     max_file_size: Optional[int] = None
 
     rating_scale: Optional[int] = None
+    voice_enabled: Optional[bool] = False
 
 
 class FieldUpdate(BaseModel):
@@ -87,6 +88,7 @@ class FieldUpdate(BaseModel):
     max_file_size: Optional[int] = None
 
     rating_scale: Optional[int] = None
+    voice_enabled: Optional[bool] = None
 
 
 class FieldOrderItem(BaseModel):
@@ -117,6 +119,7 @@ class FieldForCreate(BaseModel):
     max_file_size: Optional[int] = None
 
     rating_scale: Optional[int] = None
+    voice_enabled: Optional[bool] = False
 
     options: Optional[List[str]] = []
 

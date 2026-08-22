@@ -345,24 +345,45 @@ function PublicForm() {
               </label>
 
               {field.field_type === "text" && (
-                <VoiceTextInput
-                  type="text"
-                  value={responses[field.id] || ""}
-                  onChange={(val) => handleChange(field.id, val)}
-                  placeholder={field.field_label}
-                  autoComplete="off"
-                  maxLength={field.max_length || undefined}
-                />
+                field.voice_enabled ? (
+                  <VoiceTextInput
+                    type="text"
+                    value={responses[field.id] || ""}
+                    onChange={(val) => handleChange(field.id, val)}
+                    placeholder={field.field_label}
+                    autoComplete="off"
+                    maxLength={field.max_length || undefined}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={responses[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    placeholder={field.field_label}
+                    autoComplete="off"
+                    maxLength={field.max_length || undefined}
+                  />
+                )
               )}
 
               {field.field_type === "email" && (
-                <VoiceTextInput
-                  type="email"
-                  value={responses[field.id] || ""}
-                  onChange={(val) => handleChange(field.id, val)}
-                  placeholder={field.field_label}
-                  autoComplete="off"
-                />
+                field.voice_enabled ? (
+                  <VoiceTextInput
+                    type="email"
+                    value={responses[field.id] || ""}
+                    onChange={(val) => handleChange(field.id, val)}
+                    placeholder={field.field_label}
+                    autoComplete="off"
+                  />
+                ) : (
+                  <input
+                    type="email"
+                    value={responses[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    placeholder={field.field_label}
+                    autoComplete="off"
+                  />
+                )
               )}
 
               {field.field_type === "number" && (

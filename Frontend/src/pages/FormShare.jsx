@@ -61,6 +61,18 @@ function FormShare() {
     alert("Link copied!");
   };
 
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: form.title, text: `Please fill out: ${form.title}`, url: shareLink });
+      } catch (error) {
+        // User cancelled the share sheet — not an error worth showing.
+      }
+    } else {
+      await handleCopy();
+    }
+  };
+
   const handleCreateOtt = async () => {
     setCreatingOtt(true);
     try {
@@ -127,6 +139,20 @@ function FormShare() {
                 height={200}
               />
               <p className="form-hint">Scan to open the form</p>
+              <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                <button className="btn btn-outline btn-sm" onClick={handleNativeShare}>
+                  📤 Share
+                </button>
+                <a
+                  className="btn btn-outline btn-sm"
+                  href={`https://wa.me/?text=${encodeURIComponent(`Please fill out this form: ${shareLink}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "none" }}
+                >
+                  💬 WhatsApp
+                </a>
+              </div>
             </div>
           </>
         )}

@@ -29,6 +29,7 @@ function QuestionBuilder({ questions, setQuestions }) {
   const [allowedFileTypes, setAllowedFileTypes] = useState("");
   const [maxFileSize, setMaxFileSize] = useState("");
   const [ratingScale, setRatingScale] = useState("5");
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   const resetForm = () => {
     setLabel("");
@@ -45,6 +46,7 @@ function QuestionBuilder({ questions, setQuestions }) {
     setAllowedFileTypes("");
     setMaxFileSize("");
     setRatingScale("5");
+    setVoiceEnabled(false);
   };
 
   const handleAddQuestion = () => {
@@ -80,6 +82,7 @@ function QuestionBuilder({ questions, setQuestions }) {
       max_file_size: type === "file" && maxFileSize !== "" ? Number(maxFileSize) : null,
 
       rating_scale: type === "rating" ? Number(ratingScale) : null,
+      voice_enabled: (type === "text" || type === "email") ? voiceEnabled : false,
     };
 
     setQuestions([...questions, newQuestion]);
@@ -160,6 +163,20 @@ function QuestionBuilder({ questions, setQuestions }) {
               autoComplete="off"
             />
           </div>
+        </div>
+      )}
+
+      {/* Voice input toggle — only meaningful for typed answers */}
+      {(type === "text" || type === "email") && (
+        <div className="form-group">
+          <label className="form-label">Allow Voice Input</label>
+          <select
+            value={voiceEnabled ? "yes" : "no"}
+            onChange={(e) => setVoiceEnabled(e.target.value === "yes")}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes — show a mic button on this question</option>
+          </select>
         </div>
       )}
 

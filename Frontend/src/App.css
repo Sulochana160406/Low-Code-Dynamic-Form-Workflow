@@ -1294,6 +1294,17 @@ button:disabled, .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: n
   gap: 10px;
 }
 
+.download-hint-box {
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.download-hint-box .form-hint {
+  margin: 0 0 10px;
+}
+
 /* =========================================================
    CONDITIONAL RULE BUILDER
    ========================================================= */
