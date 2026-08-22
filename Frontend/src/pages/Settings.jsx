@@ -1,23 +1,19 @@
 import { useEffect, useState } from "react";
 import { getStoredUser } from "../services/api";
+import { useLanguage } from "../i18n";
 
 const THEME_KEY = "formcraft_theme";
-const LANGUAGE_KEY = "formcraft_language";
 
 function Settings() {
   const user = getStoredUser();
+  const { language, setLanguage, t } = useLanguage();
 
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "light");
-  const [language, setLanguage] = useState(() => localStorage.getItem(LANGUAGE_KEY) || "en");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem(LANGUAGE_KEY, language);
-  }, [language]);
 
   const initials = (user?.name || user?.email || "?")
     .trim()
@@ -30,12 +26,12 @@ function Settings() {
   return (
     <div>
       <div className="page-header">
-        <h1>⚙️ Settings</h1>
+        <h1>⚙️ {t("settings")}</h1>
         <p>Manage your profile and preferences</p>
       </div>
 
       <div className="panel">
-        <div className="panel-header"><h2>Profile</h2></div>
+        <div className="panel-header"><h2>{t("profile")}</h2></div>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           <span
             className="profile-avatar"
@@ -51,7 +47,7 @@ function Settings() {
       </div>
 
       <div className="panel">
-        <div className="panel-header"><h2>Appearance</h2></div>
+        <div className="panel-header"><h2>{t("appearance")}</h2></div>
         <label className="toggle-switch">
           <input
             type="checkbox"
@@ -59,12 +55,12 @@ function Settings() {
             onChange={(e) => setTheme(e.target.checked ? "dark" : "light")}
           />
           <span className="toggle-switch-track"></span>
-          <span className="toggle-switch-label">Dark mode</span>
+          <span className="toggle-switch-label">{t("darkMode")}</span>
         </label>
       </div>
 
       <div className="panel">
-        <div className="panel-header"><h2>Language</h2></div>
+        <div className="panel-header"><h2>{t("language")}</h2></div>
         <div className="form-group" style={{ maxWidth: "260px" }}>
           <select value={language} onChange={(e) => setLanguage(e.target.value)}>
             <option value="en">English</option>
@@ -72,9 +68,9 @@ function Settings() {
             <option value="hi">हिन्दी (Hindi)</option>
           </select>
           <p className="form-hint">
-            {language === "en" && "Interface language: English."}
-            {language === "te" && "ఇంటర్ఫేస్ భాష: తెలుగు (త్వరలో అందుబాటులోకి వస్తుంది)."}
-            {language === "hi" && "इंटरफ़ेस भाषा: हिन्दी (जल्द ही उपलब्ध होगा)."}
+            {language === "en" && "The navigation, headers and key labels now show in English."}
+            {language === "te" && "నావిగేషన్, హెడర్‌లు మరియు ముఖ్య లేబుల్స్ ఇప్పుడు తెలుగులో కనిపిస్తాయి."}
+            {language === "hi" && "नेविगेशन, हेडर और मुख्य लेबल अब हिन्दी में दिखते हैं।"}
           </p>
         </div>
       </div>

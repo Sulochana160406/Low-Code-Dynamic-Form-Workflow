@@ -7,6 +7,7 @@ import {
   deleteForm,
   duplicateForm,
 } from "../services/api";
+import { useLanguage } from "../i18n";
 
 function FormsList() {
   const [forms, setForms] = useState([]);
@@ -17,6 +18,7 @@ function FormsList() {
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   useEffect(() => {
     loadForms();
@@ -97,8 +99,8 @@ function FormsList() {
   return (
     <div>
       <div className="page-header">
-        <h1>📋 Forms List</h1>
-        <p>Manage all your forms from one place</p>
+        <h1>📋 {t("formsListTitle")}</h1>
+        <p>{t("formsListSubtitle")}</p>
       </div>
 
       <div className="panel">
@@ -106,7 +108,7 @@ function FormsList() {
           <input
             type="text"
             className="search-input"
-            placeholder="🔍 Search by title"
+            placeholder={`🔍 ${t("searchByTitle")}`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoComplete="off"
@@ -138,11 +140,11 @@ function FormsList() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Description</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>{t("id")}</th>
+              <th>{t("title")}</th>
+              <th>{t("description")}</th>
+              <th>{t("status")}</th>
+              <th>{t("actions")}</th>
             </tr>
           </thead>
 
@@ -166,39 +168,39 @@ function FormsList() {
                   <td>
                     <div className="btn-row">
                       <button className="btn btn-outline btn-sm" onClick={() => handleEdit(form.id)}>
-                        Edit
+                        {t("edit")}
                       </button>
 
                       <button className="btn btn-outline btn-sm" onClick={() => handleAnalytics(form.id)}>
-                        📊 Analytics
+                        📊 {t("analytics")}
                       </button>
 
                       <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(form.id, form.title)}>
-                        🧬 Duplicate
+                        🧬 {t("duplicate")}
                       </button>
 
                       {form.status !== "Archived" && (
                         <button className="btn btn-success btn-sm" onClick={() => handlePublish(form.id)}>
-                          {form.status === "Published" ? "Publish New Version" : "Publish"}
+                          {form.status === "Published" ? "Publish New Version" : t("publish")}
                         </button>
                       )}
 
                       {form.status === "Published" && (
                         <button className="btn btn-warning btn-sm" onClick={() => handleArchive(form.id)}>
-                          Archive
+                          {t("archive")}
                         </button>
                       )}
 
                       <button className="btn btn-ghost btn-sm" onClick={() => handleView(form.id)}>
-                        View
+                        {t("view")}
                       </button>
 
                       <button className="btn btn-outline btn-sm" onClick={() => handleShare(form.id)}>
-                        🔗 Share &amp; Settings
+                        🔗 {t("shareSettings")}
                       </button>
 
                       <button className="btn btn-danger btn-sm" onClick={() => handleDelete(form.id)}>
-                        Delete
+                        {t("delete")}
                       </button>
                     </div>
                   </td>

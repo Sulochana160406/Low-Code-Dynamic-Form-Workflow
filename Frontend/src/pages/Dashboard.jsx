@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getForms, getSubmissions } from "../services/api";
+import { useLanguage } from "../i18n";
 
 function Dashboard() {
   const [forms, setForms] = useState([]);
@@ -9,15 +10,13 @@ function Dashboard() {
   const [loadError, setLoadError] = useState(false);
 
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
   const loadDashboard = async () => {
-    // Load forms and responses independently — if one fails on a flaky
-    // connection, the other can still succeed and render, instead of
-    // the whole dashboard failing on a single hiccup.
     const formsResult = await getForms().catch((error) => {
       console.log("Failed to load forms:", error);
       return null;
@@ -48,7 +47,7 @@ function Dashboard() {
     <div>
       <div className="page-header">
         <h1>📋 Low-Code Dynamic Form Platform</h1>
-        <p>Welcome back — here's what's happening with your forms.</p>
+        <p>{t("welcomeBack")}</p>
       </div>
 
       {loadError && (
@@ -73,7 +72,7 @@ function Dashboard() {
         >
           <div className="card-icon blue">📄</div>
           <div>
-            <div className="card-label">Total Forms</div>
+            <div className="card-label">{t("totalForms")}</div>
             <div className="card-value">{totalForms}</div>
           </div>
         </button>
@@ -86,7 +85,7 @@ function Dashboard() {
         >
           <div className="card-icon green">✅</div>
           <div>
-            <div className="card-label">Published Forms</div>
+            <div className="card-label">{t("publishedForms")}</div>
             <div className="card-value">{publishedForms}</div>
           </div>
         </button>
@@ -99,7 +98,7 @@ function Dashboard() {
         >
           <div className="card-icon orange">📝</div>
           <div>
-            <div className="card-label">Draft Forms</div>
+            <div className="card-label">{t("draftForms")}</div>
             <div className="card-value">{draftForms}</div>
           </div>
         </button>
@@ -112,7 +111,7 @@ function Dashboard() {
         >
           <div className="card-icon purple">📨</div>
           <div>
-            <div className="card-label">Total Responses</div>
+            <div className="card-label">{t("totalResponses")}</div>
             <div className="card-value">{totalResponses}</div>
           </div>
         </button>
@@ -120,18 +119,18 @@ function Dashboard() {
 
       <div className="panel">
         <div className="panel-header">
-          <h2>🕒 Recent Forms</h2>
+          <h2>🕒 {t("recentForms")}</h2>
           <a className="link-more" onClick={() => navigate("/forms-list")} href="#!">
-            View all →
+            {t("viewAll")} →
           </a>
         </div>
 
         <table className="data-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Status</th>
+              <th>{t("id")}</th>
+              <th>{t("title")}</th>
+              <th>{t("status")}</th>
             </tr>
           </thead>
 

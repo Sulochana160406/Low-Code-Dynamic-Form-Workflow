@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { logout, getStoredUser } from "../services/api";
+import { useLanguage } from "../i18n";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", end: true, icon: "\u2302" },
-  { to: "/create-form", label: "Create Form", icon: "\u270E" },
-  { to: "/forms-list", label: "Forms List", icon: "\u2637" },
-  { to: "/responses", label: "Responses", icon: "\u2611" },
-  { to: "/audit-log", label: "Audit Log", icon: "\u{1F575}" },
+  { to: "/", key: "dashboard", end: true, icon: "\u2302" },
+  { to: "/create-form", key: "createForm", icon: "\u270E" },
+  { to: "/forms-list", key: "formsList", icon: "\u2637" },
+  { to: "/responses", key: "responses", icon: "\u2611" },
+  { to: "/audit-log", key: "auditLog", icon: "\u{1F575}" },
 ];
 
 const THEME_KEY = "formcraft_theme";
@@ -22,6 +23,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = getStoredUser();
+  const { t } = useLanguage();
 
   // The theme can also be changed from the Settings page — this just
   // makes sure the <html data-theme> attribute is applied on first load
@@ -98,8 +100,8 @@ function AdminLayout() {
               <div className="profile-dropdown-name">{user?.name || "Admin"}</div>
               <div className="profile-dropdown-email">{user?.email}</div>
               <hr />
-              <NavLink to="/settings">⚙ Settings</NavLink>
-              <button type="button" className="logout" onClick={handleLogout}>Logout</button>
+              <NavLink to="/settings">⚙ {t("settings")}</NavLink>
+              <button type="button" className="logout" onClick={handleLogout}>{t("logout")}</button>
             </div>
           )}
         </div>
@@ -133,7 +135,7 @@ function AdminLayout() {
                   className={({ isActive }) => (isActive ? "active" : undefined)}
                 >
                   <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span>{t(item.key)}</span>
                 </NavLink>
               ))}
 
@@ -144,7 +146,7 @@ function AdminLayout() {
                 className={({ isActive }) => (isActive ? "active" : undefined)}
               >
                 <span className="sidebar-icon" aria-hidden="true">⚙</span>
-                <span>Settings</span>
+                <span>{t("settings")}</span>
               </NavLink>
             </nav>
           </div>
