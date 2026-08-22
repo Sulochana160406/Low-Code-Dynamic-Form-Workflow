@@ -54,6 +54,7 @@ function QuestionBuilder({ questions, setQuestions }) {
     }
 
     const newQuestion = {
+      tempId: crypto.randomUUID(),
       label,
       type,
       required,

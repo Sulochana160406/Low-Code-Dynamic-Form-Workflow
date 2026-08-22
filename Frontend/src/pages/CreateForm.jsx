@@ -16,7 +16,6 @@ import {
   updateForm,
   createConditionalRule,
   deleteConditionalRule,
-  publishForm,
 } from "../services/api";
 
 function CreateForm() {
@@ -298,18 +297,7 @@ function CreateForm() {
 
       await savePendingRules(form.id, tempIdToRealId);
 
-      // Publish right away so the share link is live with the rules
-      // already baked in — no separate manual "Publish" click needed.
-      // Further edits after this still need "Publish New Version" to
-      // push changes to the live link (that's the versioning system
-      // working as intended, not an extra step you didn't ask for).
-      try {
-        await publishForm(form.id);
-      } catch (publishError) {
-        console.log(publishError);
-      }
-
-      alert("Form created and published successfully!");
+      alert("Form and Questions Saved Successfully! Now publish it from the Forms List to get a share link.");
       navigate("/forms-list");
     } catch (error) {
       console.log(error);
