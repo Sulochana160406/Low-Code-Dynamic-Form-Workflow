@@ -104,13 +104,19 @@ function QuestionBuilder({ questions, setQuestions }) {
 
       <div className="form-group">
         <label className="form-label">Field Type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)}>
+        <div className="field-type-grid">
           {FIELD_TYPES.map((ft) => (
-            <option key={ft.value} value={ft.value}>
-              {ft.icon} {ft.label}
-            </option>
+            <button
+              type="button"
+              key={ft.value}
+              className={`field-type-chip${type === ft.value ? " active" : ""}`}
+              onClick={() => setType(ft.value)}
+            >
+              <span className="field-type-icon">{ft.icon}</span>
+              <span>{ft.label}</span>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       {/* Options for Dropdown & Multi Checkbox */}

@@ -31,13 +31,16 @@ function Login() {
           <span className="auth-brand-name">FormCraft</span>
         </div>
         <div className="auth-brand-copy">
-          <h1>Build forms.<br />Understand your data.</h1>
-          <p>Conditional logic, live analytics, and export — all in one workspace.</p>
+          <h1>Forms that think for themselves.</h1>
+          <p>
+            FormCraft is a low-code platform for building forms whose questions adapt as people
+            answer them — then turns every response into insight you can act on.
+          </p>
         </div>
         <ul className="auth-feature-list">
-          <li>Drag-free dynamic form builder</li>
-          <li>Response analytics &amp; CSV/JSON export</li>
-          <li>Retention policies &amp; audit history</li>
+          <li>Build logic-driven forms, no code required</li>
+          <li>Watch responses become charts in real time</li>
+          <li>Manage, export, and share it all from one place</li>
         </ul>
       </div>
 

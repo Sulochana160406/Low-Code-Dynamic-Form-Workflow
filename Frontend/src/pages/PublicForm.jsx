@@ -1,6 +1,55 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getPublicForm, getPublicFormByUuid, submitPublicForm, submitPublicFormByUuid, uploadFile, startPublicForm, startPublicFormByUuid } from "../services/api";
+import VoiceTextInput from "../components/VoiceTextInput";
+
+const SpeechRecognitionAPI =
+  typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+
+// Voice-based form filling: uses the browser's own built-in speech-to-text
+// (no external API, no cost, no key). Only renders if the browser supports
+// it (mainly Chrome/Edge) — silently omitted elsewhere rather than showing
+// a broken button.
+function VoiceInputButton({ onResult }) {
+  const [listening, setListening] = useState(false);
+
+  if (!SpeechRecognitionAPI) return null;
+
+  const handleClick = () => {
+    if (listening) return;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) onResult(transcript);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={`voice-input-btn${listening ? " listening" : ""}`}
+      onClick={handleClick}
+      title="Speak your answer"
+      aria-label="Speak your answer"
+    >
+      {listening ? "🔴" : "🎙️"}
+    </button>
+  );
+}
 
 function evaluateCondition(operator, triggerValue, comparisonValue) {
   const t = (triggerValue ?? "").toString().trim();
@@ -146,7 +195,14 @@ function PublicForm() {
         : await submitPublicForm(form.id, payload);
 
       navigate(`/form/${id}/thank-you`, {
-        state: { formTitle: form.title, submissionId: result.submission_id },
+        state: {
+          formTitle: form.title,
+          submissionId: result.submission_id,
+          answers: visibleFields.map((field) => ({
+            label: field.field_label,
+            value: displayValue(field),
+          })),
+        },
       });
     } catch (error) {
       console.log(error);
@@ -266,10 +322,10 @@ function PublicForm() {
             Your Name
             <span className="req">*</span>
           </label>
-          <input
+          <VoiceTextInput
             type="text"
             value={submitterName}
-            onChange={(e) => setSubmitterName(e.target.value)}
+            onChange={setSubmitterName}
             placeholder="Enter your full name"
             autoComplete="off"
           />
@@ -289,10 +345,10 @@ function PublicForm() {
               </label>
 
               {field.field_type === "text" && (
-                <input
+                <VoiceTextInput
                   type="text"
                   value={responses[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
+                  onChange={(val) => handleChange(field.id, val)}
                   placeholder={field.field_label}
                   autoComplete="off"
                   maxLength={field.max_length || undefined}
@@ -300,10 +356,10 @@ function PublicForm() {
               )}
 
               {field.field_type === "email" && (
-                <input
+                <VoiceTextInput
                   type="email"
                   value={responses[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
+                  onChange={(val) => handleChange(field.id, val)}
                   placeholder={field.field_label}
                   autoComplete="off"
                 />
